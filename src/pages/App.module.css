@@ -1,0 +1,12 @@
+/* styles/App.module.css */
+.appContainer {
+    display: flex;
+  }
+  
+  .mainContent {
+    margin-left: 250px; /* Adjust this value based on your sidebar's width */
+    width: calc(100% - 250px); /* Ensure this matches the sidebar width */
+    min-height: 100vh;
+    padding: 20px; /* Add padding for better appearance, adjust as needed */
+  }
+  

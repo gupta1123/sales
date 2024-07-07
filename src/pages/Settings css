@@ -1,0 +1,40 @@
+.settingsContainer {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.tabHeader {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 16px;
+}
+
+.tabButton {
+    padding: 10px 20px;
+    border: none;
+    background-color: #f0f0f0; /* Light gray background for inactive tabs */
+    cursor: pointer;
+    margin-right: 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    color: #333; /* Darker gray for text */
+}
+
+.tabButton:hover {
+    background-color: #e0e0e0; /* Slightly darker gray on hover */
+}
+
+.activeTab {
+    background-color: #cce5ff; /* Light blue background for active tab */
+    color: #0056b3; /* Darker blue text for active tab */
+}
+
+
+.tabContent {
+    padding: 16px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}

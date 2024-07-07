@@ -1,0 +1,63 @@
+ .outlined-container {
+     border: 1px solid #ddd;
+     padding: 2rem;
+     border-radius: 0.5rem;
+     background: #fff;
+     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+     margin: 0 auto;
+     max-width: 90%;
+ }
+
+ .table-container {
+     width: 100%;
+     overflow-x: auto;
+ }
+
+ .table-container table {
+     width: 100%;
+     border-collapse: collapse;
+ }
+
+ .table-container th,
+ .table-container td {
+     padding: 0.75rem 1.5rem;
+     text-align: left;
+     border-bottom: 1px solid #ddd;
+ }
+
+ .tag {
+     padding: 2px 8px;
+     border-radius: 12px;
+     font-size: 12px;
+     font-weight: bold;
+ }
+
+ .tag-blue {
+     background-color: #e6f3ff;
+     color: #0066cc;
+ }
+
+ .tag-yellow {
+     background-color: #fff9e6;
+     color: #b38600;
+ }
+
+ .tag-green {
+     background-color: #e6ffe6;
+     color: #006600;
+ }
+
+ .tag-gray {
+     background-color: #f2f2f2;
+     color: #666666;
+ }
+
+ .tag-orange {
+     background-color: #fff2e6;
+     color: #cc5500;
+ }
+
+ .tag-red {
+     background-color: #ffe6e6;
+     color: #cc0000;
+ }
