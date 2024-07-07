@@ -42,7 +42,7 @@ interface Task {
     storeId: number;
     storeName: string;
     storeCity: string;
-    taskType: string;  // Add this line
+    taskType: string;  // Add this line
 }
 
 interface Employee {
@@ -72,7 +72,7 @@ const Complaints = () => {
         storeId: 0,
         storeName: '',
         storeCity: '',
-        taskType: 'complaint'  // Add this line
+        taskType: 'complaint'  // Add this line
     });
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('general');
@@ -214,7 +214,7 @@ const Complaints = () => {
                 storeId: 0,
                 storeName: '',
                 storeCity: '',
-                taskType: 'complaint'  // Add this line
+                taskType: 'complaint'  // Add this line
             });
             setIsModalOpen(false);
         } catch (error) {
@@ -392,8 +392,8 @@ const Complaints = () => {
                     </div>
                     <div className="flex items-center space-x-2">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${task.priority.toLowerCase() === 'low' ? 'bg-green-100 text-green-800' :
-                                task.priority.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                    'bg-red-100 text-red-800'
+                            task.priority.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
                             }`}>
                             {task.priority}
                         </span>
@@ -640,19 +640,19 @@ const Complaints = () => {
                 ) : tasks.length === 0 ? (
                     <p>No complaints found.</p>
                 ) : (
-                            tasks
-                                .filter(
-                                    (task) =>
-                                        task.taskType === 'complaint' &&
-                                        (
-                                            (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
-                                            (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
-                                        ) &&
-                                        (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
-                                        (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                                        (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status)
-                                )
-                                .map(renderComplaintCard)
+                    tasks
+                        .filter(
+                            (task) =>
+                                task.taskType === 'complaint' &&
+                                (
+                                    (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
+                                    (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
+                                ) &&
+                                (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
+                                (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
+                                (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status)
+                        )
+                        .map(renderComplaintCard)
                 )}
             </div>
 
