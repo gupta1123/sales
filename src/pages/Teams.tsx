@@ -10,16 +10,18 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { useToast } from "@/components/ui/use-toast"
-import { UserPlus, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
-import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/components/ui/use-toast";
+import { UserPlus, ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import Select, { MultiValue } from 'react-select';
 
 interface Team {
     id: number;
     officeManager: {
+        id: number;
         firstName: string | null;
         lastName: string | null;
-        assignedCity: string;
+        assignedCity: string[];
     };
     fieldOfficers: FieldOfficer[];
 }
@@ -32,17 +34,23 @@ interface FieldOfficer {
 }
 
 const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
-    const { toast } = useToast()
+    const { toast } = useToast();
     const [teams, setTeams] = useState<Team[]>([]);
     const [isDataAvailable, setIsDataAvailable] = useState<boolean>(true);
     const [isDeleteModalVisible, setIsDeleteModalVisible] = useState<boolean>(false);
     const [deleteTeamId, setDeleteTeamId] = useState<number | null>(null);
     const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+    const [selectedOfficeManagerId, setSelectedOfficeManagerId] = useState<number | null>(null);
     const [isEditModalVisible, setIsEditModalVisible] = useState<boolean>(false);
+    const [isCityRemoveModalVisible, setIsCityRemoveModalVisible] = useState<boolean>(false);
     const [fieldOfficers, setFieldOfficers] = useState<FieldOfficer[]>([]);
     const [selectedFieldOfficers, setSelectedFieldOfficers] = useState<number[]>([]);
-    const [assignedCity, setAssignedCity] = useState<string | null>(null);
+    const [assignedCities, setAssignedCities] = useState<string[]>([]);
+    const [cityToRemove, setCityToRemove] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState<{ [key: number]: number }>({});
+    const [availableCities, setAvailableCities] = useState<{ value: string, label: string }[]>([]);
+    const [selectedCities, setSelectedCities] = useState<MultiValue<{ value: string, label: string }>>([]);
+    const [newCity, setNewCity] = useState<string | null>(null);
 
     const fetchTeams = useCallback(async () => {
         try {
@@ -56,7 +64,7 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             toast({
                 title: "Teams loaded successfully",
                 description: "All team data has been fetched.",
-                variant: "default", // Changed from "success" to "default"
+                variant: "default",
             });
         } catch (error) {
             console.error('Error fetching teams:', error);
@@ -72,6 +80,30 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
     useEffect(() => {
         fetchTeams();
     }, [fetchTeams]);
+
+    const fetchCities = async () => {
+        try {
+            const response = await axios.get(
+                "http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getCities",
+                {
+                    headers: {
+                        Authorization: `Bearer ${authToken}`,
+                    },
+                }
+            );
+            const sortedCities = response.data
+                .sort((a: string, b: string) => a.localeCompare(b))
+                .map((city: string) => ({ value: city, label: city }));
+            setAvailableCities(sortedCities);
+        } catch (error) {
+            console.error("Error fetching cities:", error);
+            toast({
+                title: "Error",
+                description: "Failed to fetch cities. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
 
     const showDeleteModal = (teamId: number) => {
         setDeleteTeamId(teamId);
@@ -90,7 +122,7 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             toast({
                 title: "Team deleted",
                 description: "The team has been successfully deleted.",
-                variant: "default", // Changed from "success" to "default"
+                variant: "default",
             });
         } catch (error) {
             console.error('Error deleting team:', error);
@@ -102,15 +134,19 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         }
     };
 
-    const fetchFieldOfficersByCity = useCallback(async (city: string, teamId: number) => {
+    const fetchFieldOfficersByCities = useCallback(async (cities: string[], officeManagerId: number) => {
         try {
-            const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getFieldOfficerByCity?city=${city}`, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                },
-            });
-            const allFieldOfficers: FieldOfficer[] = response.data.filter((officer: FieldOfficer) => officer.role === 'Field Officer');
-            const currentTeam = teams.find(team => team.id === teamId);
+            const promises = cities.map(city =>
+                axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getFieldOfficerByCity?city=${city}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                    },
+                })
+            );
+
+            const responses = await Promise.all(promises);
+            const allFieldOfficers: FieldOfficer[] = responses.flatMap(response => response.data).filter((officer: FieldOfficer) => officer.role === 'Field Officer');
+            const currentTeam = teams.find(team => team.officeManager.id === officeManagerId);
             const currentTeamMemberIds = currentTeam ? currentTeam.fieldOfficers.map(officer => officer.id) : [];
             const availableFieldOfficers = allFieldOfficers.filter((officer: FieldOfficer) => !currentTeamMemberIds.includes(officer.id));
             setFieldOfficers(availableFieldOfficers);
@@ -126,10 +162,51 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
 
     const showEditModal = async (team: Team) => {
         setSelectedTeamId(team.id);
-        const city = team.officeManager.assignedCity;
-        setAssignedCity(city);
-        await fetchFieldOfficersByCity(city, team.id);
+        setSelectedOfficeManagerId(team.officeManager.id);
+        const cities = team.officeManager.assignedCity;
+        setAssignedCities(cities);
+        setSelectedCities(cities.map(city => ({ value: city, label: city })));
+        await fetchFieldOfficersByCities(cities, team.officeManager.id);
         setIsEditModalVisible(true);
+        await fetchCities();
+    };
+
+    const handleAddCity = (selectedOptions: MultiValue<{ value: string, label: string }>) => {
+        const newCities = selectedOptions.map(option => option.value);
+        setSelectedCities(selectedOptions);
+        setNewCity(newCities[newCities.length - 1]);
+    };
+
+    const handleRemoveCity = (cityToRemove: string) => {
+        setCityToRemove(cityToRemove);
+        setIsCityRemoveModalVisible(true);
+    };
+
+    const confirmRemoveCity = async () => {
+        if (!selectedOfficeManagerId || !cityToRemove) return;
+        try {
+            await axios.delete(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/removeAssignedCity?employeeId=${selectedOfficeManagerId}&city=${cityToRemove}`, {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                },
+            });
+            setAssignedCities(prev => prev.filter(city => city !== cityToRemove));
+            setSelectedCities(prev => prev.filter(option => option.value !== cityToRemove));
+            await fetchTeams(); // Fetch teams again to update the data
+            setIsCityRemoveModalVisible(false);
+            toast({
+                title: "City removed",
+                description: `${cityToRemove} removed from Employee Id: ${selectedOfficeManagerId} and associated team updated/deleted.`,
+                variant: "default",
+            });
+        } catch (error) {
+            console.error('Error removing city:', error);
+            toast({
+                title: "Error",
+                description: "Failed to remove city. Please try again.",
+                variant: "destructive",
+            });
+        }
     };
 
     const handleAddFieldOfficer = async () => {
@@ -157,7 +234,7 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             toast({
                 title: "Field officers added",
                 description: "The selected field officers have been added to the team.",
-                variant: "default", // Changed from "success" to "default"
+                variant: "default",
             });
         } catch (error) {
             console.error('Error adding field officer:', error);
@@ -169,9 +246,10 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         }
     };
 
-    const handleRemoveFieldOfficer = async (teamId: number, fieldOfficerId: number) => {
+    const handleRemoveFieldOfficer = async (fieldOfficerId: number) => {
+        if (!selectedOfficeManagerId) return;
         try {
-            await axios.delete(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/team/deleteFieldOfficer?id=${teamId}`, {
+            await axios.delete(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/team/deleteFieldOfficer?id=${selectedOfficeManagerId}`, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
                     'Content-Type': 'application/json',
@@ -184,7 +262,7 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             toast({
                 title: "Field officer removed",
                 description: "The field officer has been removed from the team.",
-                variant: "default", // Changed from "success" to "default"
+                variant: "default",
             });
         } catch (error) {
             console.error('Error removing field officer:', error);
@@ -196,15 +274,39 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         }
     };
 
-
+    const handleAssignCity = async () => {
+        if (!newCity || !selectedOfficeManagerId) return;
+        try {
+            await axios.put(
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/assignCity?id=${selectedOfficeManagerId}&city=${newCity}`,
+                {},
+                {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+            toast({
+                title: "City assigned",
+                description: `${newCity} assigned to team ${selectedOfficeManagerId}`,
+                variant: "default",
+            });
+            await fetchFieldOfficersByCities([...assignedCities, newCity], selectedOfficeManagerId);
+            setAssignedCities(prev => [...prev, newCity]);
+            setNewCity(null);
+        } catch (error) {
+            console.error('Error assigning city:', error);
+            toast({
+                title: "Error",
+                description: "Failed to assign city. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
 
     const getInitials = (name: string) => {
         return name.split(' ').map(n => n[0]).join('').toUpperCase();
-    };
-
-    const getRandomColor = () => {
-        const colors = ['bg-purple-500'];
-        return colors[Math.floor(Math.random() * colors.length)];
     };
 
     const handlePageChange = (teamId: number, newPage: number) => {
@@ -230,8 +332,15 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                                 {team.officeManager?.firstName ?? 'N/A'} {team.officeManager?.lastName ?? 'N/A'}
                                             </h3>
                                             <p className="text-sm text-gray-600 mt-1">
-                                                Regional Manager - {team.officeManager.assignedCity}
+                                                Regional Manager - {team.officeManager.assignedCity.join(", ")}
                                             </p>
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {team.officeManager.assignedCity.map((city, index) => (
+                                                    <Badge key={index} variant="secondary">
+                                                        {city}
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </div>
                                         <Button
                                             variant="destructive"
@@ -260,7 +369,7 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleRemoveFieldOfficer(team.id, officer.id)}
+                                                    onClick={() => handleRemoveFieldOfficer(officer.id)}
                                                     className="flex-shrink-0"
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
@@ -309,7 +418,6 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                 <p className="text-center text-gray-500">No teams available. Please try again later.</p>
             )}
 
-
             <Dialog open={isDeleteModalVisible} onOpenChange={setIsDeleteModalVisible}>
                 <DialogContent>
                     <DialogHeader>
@@ -329,11 +437,32 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                         <DialogTitle>Add Field Officer</DialogTitle>
                     </DialogHeader>
                     <div>
-                        <Badge variant="secondary" className="mb-4">
-                            <MapPin size={16} className="mr-1" />
-                            {assignedCity ?? 'N/A'}
-                        </Badge>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {assignedCities.map((city, index) => (
+                                <Badge key={index} variant="secondary" className="flex items-center space-x-1">
+                                    <MapPin size={16} className="mr-1" />
+                                    {city}
+                                    <Button size="icon" variant="ghost" onClick={() => handleRemoveCity(city)}>
+                                        <X size={16} />
+                                    </Button>
+                                </Badge>
+                            ))}
+                        </div>
+                        <Select
+                            isMulti
+                            value={selectedCities}
+                            onChange={handleAddCity}
+                            options={availableCities.filter(city => !assignedCities.includes(city.value))}
+                            placeholder="Select cities"
+                        />
+                        {newCity && (
+                            <div className="flex justify-end mt-4">
+                                <Button onClick={handleAssignCity}>
+                                    OK
+                                </Button>
+                            </div>
+                        )}
+                        <div className="space-y-2 max-h-60 overflow-y-auto mt-4">
                             {fieldOfficers.map((officer) => (
                                 <div key={officer.id} className="flex items-center space-x-2">
                                     <Checkbox
@@ -359,6 +488,19 @@ const Teams: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                         <Button onClick={handleAddFieldOfficer} disabled={selectedFieldOfficers.length === 0}>
                             Add Selected Officers
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isCityRemoveModalVisible} onOpenChange={setIsCityRemoveModalVisible}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remove City</DialogTitle>
+                    </DialogHeader>
+                    <p>Are you sure you want to remove this city?</p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCityRemoveModalVisible(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={confirmRemoveCity}>Remove</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

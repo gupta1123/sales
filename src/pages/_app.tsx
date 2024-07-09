@@ -5,7 +5,8 @@ import Sidebar from '../components/Sidebar';
 import styles from './App.module.css';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { store, setToken, setRole, fetchUserInfo, setupAxiosDefaults, AppDispatch, RootState, loginUser } from '../store'; // Added loginUser import
-import { fetchTeamInfo } from '../store';
+import { fetchTeamInfo, } from '../store';
+
 import React, { ReactNode, useEffect, useState } from 'react'; // Add useState import
 import { useRouter } from 'next/router';
 
@@ -74,7 +75,7 @@ const LoginPage = () => {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setErrorMessage(error.message || 'An unknown error occurred. Please try again.');
+      setErrorMessage(error || 'An unknown error occurred. Please try again.');
     }
   };
 
@@ -119,7 +120,6 @@ const LoginPage = () => {
             </div>
             <button
               className={`w-full px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 ${authStatus === 'loading' ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={(e) => handleLogin(e)}
               disabled={authStatus === 'loading'}
             >
               {authStatus === 'loading' ? 'Logging in...' : 'Login'}
@@ -130,6 +130,7 @@ const LoginPage = () => {
     </div>
   );
 };
+
 
 type AppPropsWithLayout = AppProps & {
   Component: NextPage & {
@@ -198,5 +199,6 @@ const AuthWrapper = ({ children }: { children: ReactNode }) => {
 
   return <>{children}</>;
 };
+
 
 export default MyApp;

@@ -356,21 +356,12 @@ function CustomerListContent() {
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline">Bulk Actions</Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onSelect={() => handleBulkAction('changeFieldOfficer')}>
-                                        Change Field Officer
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+
                         </>
                     )}
-                     <Button variant="outline" onClick={openModal}>
+                    <Button variant="outline" onClick={openModal}>
                         Add Customer
-                    </Button> 
+                    </Button>
                 </div>
             </div>
             <AddCustomerModal
@@ -679,4 +670,3 @@ function CustomerListContent() {
         </div>
     );
 }
-

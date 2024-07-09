@@ -53,6 +53,10 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
     try {
       const response = await api.post('/user/token', { username, password });
 
+      if (response.data === 'Bad credentials') {
+        return rejectWithValue('Invalid username or password');
+      }
+
       if (!response.data || typeof response.data !== 'string' || !response.data.includes(' ')) {
         console.error('Unexpected response format:', response.data);
         return rejectWithValue('Unexpected response from server');
@@ -89,6 +93,7 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
     }
   }
 );
+
 
 export const fetchUserInfo = createAsyncThunk<UserInfo, string, { rejectValue: string }>(
   'auth/fetchUserInfo',

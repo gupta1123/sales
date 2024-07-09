@@ -64,15 +64,26 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ month, year, attendance
                     dateDiv.addEventListener('mouseover', () => {
                         const rect = dateDiv.getBoundingClientRect();
                         const tooltipRect = tooltip.getBoundingClientRect();
+                        const calendarRect = datesRef.current!.getBoundingClientRect();
 
-                        if (rect.right - tooltipRect.width / 2 < 0) {
+                        // Reset styles
+                        tooltip.style.left = '';
+                        tooltip.style.right = '';
+                        tooltip.style.transform = '';
+
+                        // Check if tooltip goes beyond the left edge of the calendar
+                        if (rect.left - tooltipRect.width / 2 < calendarRect.left) {
                             tooltip.style.left = '0';
-                            tooltip.style.transform = 'none';
-                        } else if (rect.left + tooltipRect.width / 2 > datesRef.current!.offsetWidth) {
-                            tooltip.style.left = 'auto';
+                            tooltip.style.transform = 'translateX(0)';
+                        }
+                        // Check if tooltip goes beyond the right edge of the calendar
+                        else if (rect.right + tooltipRect.width / 2 > calendarRect.right) {
                             tooltip.style.right = '0';
-                            tooltip.style.transform = 'none';
-                        } else {
+                            tooltip.style.left = 'auto';
+                            tooltip.style.transform = 'translateX(0)';
+                        }
+                        // Center the tooltip if it fits
+                        else {
                             tooltip.style.left = '50%';
                             tooltip.style.transform = 'translateX(-50%)';
                         }

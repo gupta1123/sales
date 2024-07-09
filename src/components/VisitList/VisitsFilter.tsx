@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,7 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
     employeeName,
     setEmployeeName,
 }) => {
+    const role = useSelector((state: RootState) => state.auth.role);
     const [debouncedStoreName, setDebouncedStoreName] = useState(storeName);
     const [debouncedEmployeeName, setDebouncedEmployeeName] = useState(employeeName);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -237,14 +240,16 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline">Bulk Actions</Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem onSelect={onExport}>Export</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                {role === 'ADMIN' && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline">Bulk Actions</Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onSelect={onExport}>Export</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
                             </>
                         )}
                     </div>

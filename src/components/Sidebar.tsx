@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import styles from './Sidebar.module.css';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser, resetState, AppDispatch, RootState } from '../store';
-import { FiLogOut, FiHome, FiUsers, FiMap, FiUser, FiClipboard, FiDollarSign, FiCalendar, FiSettings } from 'react-icons/fi';
+import { FiLogOut, FiHome, FiUsers, FiMap, FiUser, FiClipboard, FiDollarSign, FiSettings } from 'react-icons/fi';
 
 const Sidebar: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -32,14 +32,14 @@ const Sidebar: React.FC = () => {
 
   const sidebarItems = [
     { href: '/Dashboard', icon: FiHome, label: 'Dashboard', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
-    { href: '/CustomerListPage', icon: FiUsers, label: 'Customers', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
     { href: '/VisitsList', icon: FiMap, label: 'Visits List', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
-    { href: '/Employeelist', icon: FiUser, label: 'Employee List', roles: ['ADMIN'] },
-    { href: '/DailyPricing', icon: FiDollarSign, label: 'Daily Pricing', roles: ['ADMIN', 'MANAGER'] },
+    { href: '/Expense', icon: FiDollarSign, label: 'Expenses', roles: ['ADMIN', 'FIELD OFFICER'] },
+    { href: '/Attendance', icon: FiClipboard, label: 'Attendance', roles: ['ADMIN'] },
     { href: '/Requirements', icon: FiClipboard, label: 'Requirements', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
     { href: '/Complaints', icon: FiClipboard, label: 'Complaints', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
-    { href: '/Expense', icon: FiDollarSign, label: 'Expenses', roles: ['ADMIN', 'FIELD OFFICER'] },
-    { href: '/Attendance', icon: FiCalendar, label: 'Attendance', roles: ['ADMIN'] },
+    { href: '/DailyPricing', icon: FiDollarSign, label: 'Daily Pricing', roles: ['ADMIN', 'MANAGER'] },
+    { href: '/CustomerListPage', icon: FiUsers, label: 'Customers', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
+    { href: '/Employeelist', icon: FiUser, label: 'Employee List', roles: ['ADMIN'] },
     { href: '/Settings', icon: FiSettings, label: 'Settings', roles: ['ADMIN'] },
   ];
 
