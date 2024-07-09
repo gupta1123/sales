@@ -5,7 +5,6 @@ import { RootState } from '../store';
 import { Card, CardTitle, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckIcon, XMarkIcon, InformationCircleIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
-
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -46,7 +45,6 @@ const ExpensePage = () => {
     const [expenseData, setExpenseData] = useState<Expense[]>([]);
     const [updateTrigger, setUpdateTrigger] = useState(false);
     const [selectedExpenseCategories, setSelectedExpenseCategories] = useState<string[]>([]);
-
     const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -57,7 +55,7 @@ const ExpensePage = () => {
     const [expenseCategories, setExpenseCategories] = useState<string[]>([]);
     const token = useSelector((state: RootState) => state.auth.token);
     const role = useSelector((state: RootState) => state.auth.role);
-    const teamId = useSelector((state: RootState) => state.auth.teamId); // Use teamId from Redux state
+    const teamId = useSelector((state: RootState) => state.auth.teamId);
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -75,7 +73,7 @@ const ExpensePage = () => {
         try {
             let response;
             if (role === 'MANAGER' && teamId) {
-                response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/expense/getForTeam?id=${teamId}`, { // Use teamId here
+                response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/expense/getForTeam?id=${teamId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -352,16 +350,22 @@ const ExpensePage = () => {
     };
 
     const paginatedExpenseDataCard = paginate(sortedExpenseData, currentPage, itemsPerPageCard);
-    const totalPagesCard = Math.ceil(filteredExpenseData.length / itemsPerPageCard);
+    const totalPagesCard = Math.ceil(sortedExpenseData.length / itemsPerPageCard);
     const paginatedExpenseDataTable = paginate(sortedExpenseData, currentPage, itemsPerPageTable);
-    const totalPagesTable = Math.ceil(filteredExpenseData.length / itemsPerPageTable);
+    const totalPagesTable = Math.ceil(sortedExpenseData.length / itemsPerPageTable);
 
-    const getPaginationGroup = (totalPages: number, itemsPerPage: number) => {
-        const start = Math.floor((currentPage - 1) / itemsPerPage) * itemsPerPage;
-        return new Array(itemsPerPage)
+    useEffect(() => {
+        if (filteredExpenseData.length && (currentPage > totalPagesCard)) {
+            setCurrentPage(totalPagesCard);
+        }
+    }, [filteredExpenseData, currentPage, totalPagesCard]);
+
+    const getPaginationGroup = (totalPages: number) => {
+        const start = Math.floor((currentPage - 1) / itemsPerPageCard) * itemsPerPageCard;
+        return new Array(itemsPerPageCard)
             .fill(0)
             .map((_, idx) => start + idx + 1)
-            .filter((page) => page <= totalPages);
+            .filter((page) => page <= totalPages && page <= totalPagesCard);
     };
 
     const renderNoDataMessage = () => {
@@ -487,6 +491,7 @@ const ExpensePage = () => {
                                 const pending = expenses.filter((expense) => expense.approvalStatus === 'Pending').reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
                                 const isExpanded = expandedCard === employeeName;
+                                const paginatedExpenses = isExpanded ? paginate(expenses, currentPage, itemsPerPageCard) : [];
 
                                 return (
                                     <div key={employeeName} className={`col-span-1 ${isExpanded ? 'row-span-2' : ''}`}>
@@ -518,71 +523,69 @@ const ExpensePage = () => {
                                                         {isExpanded ? 'Hide Details' : 'Show All Expenses'}
                                                     </Button>
                                                 </div>
-                                                {isExpanded && (
-                                                    <div className="mt-4">
-                                                        {paginatedExpenseDataCard.map((expense) => (
-                                                            <div key={expense.id} className="flex items-center justify-between mb-2 bg-gray-50 p-2 rounded-md shadow-sm">
-                                                                <div className="flex items-center space-x-2">
-                                                                    <Checkbox
-                                                                        checked={selectedExpenseIds.includes(expense.id)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            if (checked) {
-                                                                                setSelectedExpenseIds((prevIds) => [...prevIds, expense.id]);
-                                                                            } else {
-                                                                                setSelectedExpenseIds((prevIds) => prevIds.filter((id) => id !== expense.id));
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    {renderExpenseIcon(expense.type)}
-                                                                    <div>
-                                                                        <p className="font-semibold text-sm">{expense.type} <InformationCircleIcon className="h-4 w-4 text-gray-400 inline-block" /></p>
-                                                                        <p className="text-xs text-gray-500">{expense.expenseDate}</p>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center space-x-2">
-                                                                    <div className="text-right">
-                                                                        <span
-                                                                            className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${expense.approvalStatus === 'Approved'
-                                                                                ? 'bg-green-100 text-green-800'
-                                                                                : expense.approvalStatus === 'Rejected'
-                                                                                    ? 'bg-red-100 text-red-800'
-                                                                                    : 'bg-yellow-100 text-yellow-800'
-                                                                                }`}
-                                                                        >
-                                                                            {expense.approvalStatus}
-                                                                        </span>
-                                                                        <p className="text-sm mt-1">₹{expense.amount ? expense.amount.toFixed(2) : '0.00'}</p>
-                                                                    </div>
-                                                                    <Button variant="ghost" size="sm" onClick={() => handleApprove(employeeName, expense.id)}>
-                                                                        <CheckIcon className="h-4 w-4 text-green-500" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="sm" onClick={() => handleReject(employeeName, expense.id)}>
-                                                                        <XMarkIcon className="h-4 w-4 text-red-500" />
-                                                                    </Button>
-                                                                </div>
+                                                {paginatedExpenses.map((expense) => (
+                                                    <div key={expense.id} className="flex items-center justify-between mb-2 bg-gray-50 p-2 rounded-md shadow-sm">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                checked={selectedExpenseIds.includes(expense.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedExpenseIds((prevIds) => [...prevIds, expense.id]);
+                                                                    } else {
+                                                                        setSelectedExpenseIds((prevIds) => prevIds.filter((id) => id !== expense.id));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            {renderExpenseIcon(expense.type)}
+                                                            <div>
+                                                                <p className="font-semibold text-sm">{expense.type} <InformationCircleIcon className="h-4 w-4 text-gray-400 inline-block" /></p>
+                                                                <p className="text-xs text-gray-500">{expense.expenseDate}</p>
                                                             </div>
-                                                        ))}
-                                                        <Pagination className="flex justify-center items-center mt-4">
-                                                            <PaginationPrevious
-                                                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                                            />
-                                                            <PaginationContent>
-                                                                {getPaginationGroup(totalPagesCard, itemsPerPageCard).map((page, index) => (
-                                                                    <PaginationItem key={index}>
-                                                                        <PaginationLink
-                                                                            isActive={page === currentPage}
-                                                                            onClick={() => setCurrentPage(page)}
-                                                                        >
-                                                                            {page}
-                                                                        </PaginationLink>
-                                                                    </PaginationItem>
-                                                                ))}
-                                                            </PaginationContent>
-                                                            <PaginationNext
-                                                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPagesCard))}
-                                                            />
-                                                        </Pagination>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <div className="text-right">
+                                                                <span
+                                                                    className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${expense.approvalStatus === 'Approved'
+                                                                        ? 'bg-green-100 text-green-800'
+                                                                        : expense.approvalStatus === 'Rejected'
+                                                                            ? 'bg-red-100 text-red-800'
+                                                                            : 'bg-yellow-100 text-yellow-800'
+                                                                        }`}
+                                                                >
+                                                                    {expense.approvalStatus}
+                                                                </span>
+                                                                <p className="text-sm mt-1">₹{expense.amount ? expense.amount.toFixed(2) : '0.00'}</p>
+                                                            </div>
+                                                            <Button variant="ghost" size="sm" onClick={() => handleApprove(employeeName, expense.id)}>
+                                                                <CheckIcon className="h-4 w-4 text-green-500" />
+                                                            </Button>
+                                                            <Button variant="ghost" size="sm" onClick={() => handleReject(employeeName, expense.id)}>
+                                                                <XMarkIcon className="h-4 w-4 text-red-500" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
+                                                ))}
+                                                {isExpanded && totalPagesCard > 1 && (
+                                                    <Pagination className="flex justify-center items-center mt-4">
+                                                        <PaginationPrevious
+                                                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                        />
+                                                        <PaginationContent>
+                                                            {getPaginationGroup(totalPagesCard).map((page, index) => (
+                                                                <PaginationItem key={index}>
+                                                                    <PaginationLink
+                                                                        isActive={page === currentPage}
+                                                                        onClick={() => setCurrentPage(page)}
+                                                                    >
+                                                                        {page}
+                                                                    </PaginationLink>
+                                                                </PaginationItem>
+                                                            ))}
+                                                        </PaginationContent>
+                                                        <PaginationNext
+                                                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPagesCard))}
+                                                        />
+                                                    </Pagination>
                                                 )}
                                             </div>
                                             {isExpanded && (
@@ -704,7 +707,7 @@ const ExpensePage = () => {
                                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                             />
                             <PaginationContent>
-                                {getPaginationGroup(totalPagesTable, itemsPerPageTable).map((page, index) => (
+                                {getPaginationGroup(totalPagesTable).map((page, index) => (
                                     <PaginationItem key={index}>
                                         <PaginationLink
                                             isActive={page === currentPage}

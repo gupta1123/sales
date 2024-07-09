@@ -150,7 +150,7 @@ const EmployeeList: React.FC = () => {
         const teamData: TeamData = teamResponse.data[0];
         setTeamData(teamData);
 
-        // Set users to the field officers of the team
+
         setUsers(teamData.fieldOfficers.map((user: User) => ({ ...user, userName: user.userDto?.username || "" })));
       } else {
         const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
@@ -387,7 +387,7 @@ const EmployeeList: React.FC = () => {
     setActiveTab(newTab);
   };
 
-  const [newEmployee, setNewEmployee] = useState({
+  const initialNewEmployeeState = {
     firstName: "",
     lastName: "",
     employeeId: "",
@@ -405,7 +405,9 @@ const EmployeeList: React.FC = () => {
     dateOfJoining: "",
     userName: "",
     password: "",
-  });
+  };
+
+  const [newEmployee, setNewEmployee] = useState(initialNewEmployeeState);
 
   const [activeTab, setActiveTab] = useState('tab1');
 
@@ -542,7 +544,12 @@ const EmployeeList: React.FC = () => {
             </DialogContent>
           </Dialog>
           <AddTeam />
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <Dialog open={isModalOpen} onOpenChange={(isOpen) => {
+            setIsModalOpen(isOpen);
+            if (!isOpen) {
+              setNewEmployee(initialNewEmployeeState);
+            }
+          }}>
             <DialogTrigger asChild>
               <Button onClick={() => setIsModalOpen(true)}>Add Employee</Button>
             </DialogTrigger>
@@ -848,32 +855,7 @@ const EmployeeList: React.FC = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select
-                        value={editingEmployee.role}
-                        onValueChange={(value) =>
-                          setEditingEmployee(prev => prev ? { ...prev, role: value } : null)
-                        }
-                      >
-                        <SelectTrigger id="role">
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Field Officer">Field Officer</SelectItem>
-                          <SelectItem value="Manager">Regional Manager</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="departmentName">Department</Label>
-                      <Input
-                        id="departmentName"
-                        name="departmentName"
-                        value={editingEmployee.departmentName}
-                        onChange={handleEditInputChange}
-                      />
-                    </div>
+
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
