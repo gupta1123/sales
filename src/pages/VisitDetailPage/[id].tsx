@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -18,8 +18,9 @@ import NotesSection from "../../components/NotesSection";
 import LikesSection from "../../components/BrandsSection";
 import BrandsSection from "../../components/LikesSection";
 import PerformanceMetrics from "../../components/PerformanceMetrics";
-import "../VisitDetail.css";
+import "./VisitDetail.css";
 import Image from 'next/image';
+import { ChevronUpIcon, ChevronDownIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -101,7 +102,26 @@ const VisitDetailPage = () => {
   const [complaints, setComplaints] = useState<Task[]>([]);
 
   const router = useRouter();
-  const { id } = router.query;
+  const { id, returnState, returnEmployee } = router.query;
+
+  const handleBack = () => {
+    if (returnState && returnEmployee) {
+      router.push({
+        pathname: '/Dashboard',
+        query: { state: returnState, employee: returnEmployee }
+      });
+    } else if (returnState) {
+      router.push({
+        pathname: '/Dashboard',
+        query: { state: returnState }
+      });
+    } else {
+      router.push('/Dashboard');
+    }
+  };
+
+  const showBackButton = Boolean(returnState || returnEmployee);
+
 
   const getStatusIndicator = (status: 'Assigned' | 'On Going' | 'Checked Out' | 'Completed') => {
     switch (status) {
@@ -385,7 +405,15 @@ const VisitDetailPage = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8">Visit Detail</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Visit Detail</h1>
+        {showBackButton && (
+          <Button variant="ghost" size="lg" onClick={handleBack}>
+            <ArrowLeftIcon className="h-6 w-6" />
+            Back to Dashboard
+          </Button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">

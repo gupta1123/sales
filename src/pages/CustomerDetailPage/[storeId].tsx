@@ -54,7 +54,7 @@ export default function CustomerDetailPage() {
   const [activeTab, setActiveTab] = useState<"basic" | "contact" | "address" | "additional">("basic");
   const [rightTab, setRightTab] = useState<"visits" | "notes" | "Brands" | "Likes">("visits");
   const router = useRouter();
-  const { storeId, customerData: queryCustomerData } = router.query as { storeId?: string; customerData?: string };
+  const { storeId } = router.query as { storeId?: string };
 
   const [error, setError] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CustomerData>({});
@@ -66,26 +66,6 @@ export default function CustomerDetailPage() {
 
   const handleEdit = () => {
     setIsEditing(true);
-  };
-
-  const handleNext = () => {
-    if (activeTab === 'basic') {
-      setActiveTab('contact');
-    } else if (activeTab === 'contact') {
-      setActiveTab('address');
-    } else if (activeTab === 'address') {
-      setActiveTab('additional');
-    }
-  };
-
-  const handlePrevious = () => {
-    if (activeTab === 'additional') {
-      setActiveTab('address');
-    } else if (activeTab === 'address') {
-      setActiveTab('contact');
-    } else if (activeTab === 'contact') {
-      setActiveTab('basic');
-    }
   };
 
   const handleSave = async () => {
@@ -140,41 +120,30 @@ export default function CustomerDetailPage() {
   };
 
   useEffect(() => {
-    if (queryCustomerData) {
-      const parsedCustomerData = JSON.parse(queryCustomerData);
-      setCustomerData(parsedCustomerData);
-      setInitialData(parsedCustomerData);
-      if (parsedCustomerData.clientType === 'custom') {
-        setCustomClientType(parsedCustomerData.customClientType);
-      }
-      setIsLoading(false);
-    } else {
-      // Fetch customer data from the API if customerData is not available
-      const fetchCustomerData = async () => {
-        try {
-          const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/getById?id=${storeId}`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const data = await response.json();
-          setCustomerData(data);
-          setInitialData(data);
-          if (data.clientType === 'custom') {
-            setCustomClientType(data.customClientType);
-          }
-          setIsLoading(false);
-        } catch (error) {
-          setError('Customer not found!');
-          setIsLoading(false);
+    const fetchCustomerData = async () => {
+      try {
+        const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/getById?id=${storeId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        setCustomerData(data);
+        setInitialData(data);
+        if (data.clientType === 'custom') {
+          setCustomClientType(data.customClientType);
         }
-      };
-
-      if (storeId && token) {
-        fetchCustomerData();
+        setIsLoading(false);
+      } catch (error) {
+        setError('Customer not found!');
+        setIsLoading(false);
       }
+    };
+
+    if (storeId && token) {
+      fetchCustomerData();
     }
-  }, [storeId, token, queryCustomerData]);
+  }, [storeId, token]);
 
   const getInitials = (name: string | undefined) => {
     if (!name) return '';

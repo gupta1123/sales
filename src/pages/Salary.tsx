@@ -119,10 +119,9 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         const travelAllowance = 0;
         // Use the DA directly from the API
         const dearnessAllowance = row.dearnessAllowance || 0;
-        const totalSalary = baseSalary + travelAllowance + dearnessAllowance + (row.expenseTotal || 0);
+        const totalSalary = baseSalary + travelAllowance + dearnessAllowance + (row.statsDto.approvedExpense || 0);
         return Math.round(totalSalary);
     };
-
 
     const indexOfLastRow = currentPage * rowsPerPage;
     const indexOfFirstRow = indexOfLastRow - rowsPerPage;
@@ -210,7 +209,7 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                     <TableCell>{Math.round(calculateBaseSalary(row.salary || 0, (row.fullDays * 1 + row.halfDays * 0.5), getDaysInMonth(Number(selectedYear), Number(selectedMonth)), countSundaysInMonth(Number(selectedYear), Number(selectedMonth))))}</TableCell>
                                     <TableCell>0</TableCell>
                                     <TableCell>{Math.round(row.dearnessAllowance || 0)}</TableCell>
-                                    <TableCell>{Math.round(row.expenseTotal || 0)}</TableCell>
+                                    <TableCell>{Math.round(row.statsDto?.approvedExpense || 0)}</TableCell>
                                     <TableCell>{calculateTotalSalary(row, Number(selectedYear), Number(selectedMonth))}</TableCell>
                                 </TableRow>
                             ))}

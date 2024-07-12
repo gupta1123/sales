@@ -1,6 +1,8 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { format, subDays, differenceInDays } from 'date-fns';
 import { CalendarIcon, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,26 +75,35 @@ const Requirements = () => {
         taskType: 'requirement'
     });
     const [editTask, setEditTask] = useState<Task | null>(null);
-    const router = useRouter();
-    const [activeTab, setActiveTab] = useState('general');
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [sortColumn, setSortColumn] = useState('id');
     const [sortDirection, setSortDirection] = useState('desc');
-    const [filters, setFilters] = useState({ employee: '', priority: '', status: '', search: '' });
-    const [viewMode, setViewMode] = useState('card'); // state for managing the view mode
-    const token = useSelector((state: RootState) => state.auth.token);
-    const role = useSelector((state: RootState) => state.auth.role);
-    const teamId = useSelector((state: RootState) => state.auth.teamId);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('general');
+
+    const [filters, setFilters] = useState({
+        employee: '',
+        priority: '',
+        status: '',
+        search: '',
+        startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+        endDate: format(new Date(), 'yyyy-MM-dd')
+    });
+    const [viewMode, setViewMode] = useState('card');
     const [isLoading, setIsLoading] = useState(true);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const token = useSelector((state: RootState) => state.auth.token);
+    const role = useSelector((state: RootState) => state.auth.role);
+    const teamId = useSelector((state: RootState) => state.auth.teamId);
+
+    const router = useRouter();
 
     useEffect(() => {
         fetchTasks();
-    }, [token, currentPage, itemsPerPage, sortColumn, sortDirection, filters]);
+    }, [token, currentPage, sortColumn, sortDirection, filters]);
 
     useEffect(() => {
         if (isModalOpen) {
@@ -101,6 +112,30 @@ const Requirements = () => {
         }
     }, [isModalOpen, token]);
 
+    useEffect(() => {
+        if (errorMessage) {
+            const timer = setTimeout(() => {
+                setErrorMessage(null);
+            }, 20000);
+            return () => clearTimeout(timer);
+        }
+    }, [errorMessage]);
+
+    const handleDateChange = (key: string, value: string) => {
+        const newFilters = { ...filters, [key]: value };
+
+        if (newFilters.startDate && newFilters.endDate) {
+            const startDate = new Date(newFilters.startDate);
+            const endDate = new Date(newFilters.endDate);
+
+            if (differenceInDays(endDate, startDate) > 30) {
+                setErrorMessage('Date range should not exceed 30 days');
+                return;
+            }
+        }
+
+        setFilters(newFilters);
+    };
     const handleNext = () => {
         setActiveTab('details');
     };
@@ -109,20 +144,13 @@ const Requirements = () => {
         setActiveTab('general');
     };
 
-    const handleViewStore = (storeId: number) => {
-        router.push(`/CustomerDetailPage/${storeId}`);
-    };
-
-    const handleViewFieldOfficer = (employeeId: number) => {
-        router.push(`/SalesExecutive/${employeeId}`);
-    };
 
     const fetchTasks = async () => {
         setIsLoading(true);
         try {
             const url = role === 'MANAGER' ?
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeam?id=${teamId}` :
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getAll?page=${currentPage - 1}&size=${itemsPerPage}&sort=${sortColumn},${sortDirection}`;
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${filters.startDate}&end=${filters.endDate}&id=${teamId}` :
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${filters.startDate}&end=${filters.endDate}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -246,7 +274,8 @@ const Requirements = () => {
                     task.id === editTask.id ? { ...editTask, ...data } : task
                 )
             );
-            setIsEditModalOpen(false);
+            setIsModalOpen(false);
+
         } catch (error) {
             console.error('Error updating task:', error);
         }
@@ -307,14 +336,6 @@ const Requirements = () => {
         setCurrentPage(page);
     };
 
-    const handleItemsPerPageChange = (value: string) => {
-        const newValue = parseInt(value, 10);
-        if (!isNaN(newValue)) {
-            setItemsPerPage(newValue);
-            setCurrentPage(1);
-        }
-    };
-
     const handleFilterChange = (key: string, value: string) => {
         setFilters((prevFilters) => ({
             ...prevFilters,
@@ -353,9 +374,15 @@ const Requirements = () => {
         }
         return <span className={className}>{value}</span>;
     };
+    const handleViewStore = (storeId: number) => {
+        router.push(`/CustomerDetailPage/${storeId}`);
+    };
+    const handleViewFieldOfficer = (employeeId: number) => {
+        router.push(`/SalesExecutive/${employeeId}`);
+    };
 
     const renderPagination = () => {
-        const totalPages = Math.ceil(tasks.length / itemsPerPage);
+        const totalPages = Math.ceil(tasks.length / 10);
         const pageNumbers = [];
         const displayPages = 5;
 
@@ -434,7 +461,8 @@ const Requirements = () => {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem onClick={() => { setEditTask(task); setIsEditModalOpen(true); }} className="text-sm">
+                                <DropdownMenuItem onClick={() => { setEditTask(task); setIsModalOpen(true); }} className="text-sm">
+
                                     Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleViewStore(task.storeId)} className="text-sm">
@@ -519,7 +547,8 @@ const Requirements = () => {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
-                                    <DropdownMenuItem onClick={() => { setEditTask(task); setIsEditModalOpen(true); }} className="text-sm">
+                                    <DropdownMenuItem onClick={() => { setEditTask(task); setIsModalOpen(true); }} className="text-sm">
+
                                         Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewStore(task.storeId)} className="text-sm">
@@ -604,11 +633,48 @@ const Requirements = () => {
                         <SelectItem value="Complete">Complete</SelectItem>
                     </SelectContent>
                 </Select>
+                <div className="flex flex-col space-y-2">
+                    <div className="flex items-center space-x-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={`w-[200px] justify-start text-left font-normal ${!filters.startDate && 'text-muted-foreground'}`}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {filters.startDate ? format(new Date(filters.startDate), 'PPP') : <span>Start Date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={filters.startDate ? new Date(filters.startDate) : undefined}
+                                    onSelect={(date) => handleDateChange('startDate', date?.toISOString() || '')}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={`w-[200px] justify-start text-left font-normal ${!filters.endDate && 'text-muted-foreground'}`}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {filters.endDate ? format(new Date(filters.endDate), 'PPP') : <span>End Date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={filters.endDate ? new Date(filters.endDate) : undefined}
+                                    onSelect={(date) => handleDateChange('endDate', date?.toISOString() || '')}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    {errorMessage && <p className="text-red-600 mt-2 text-center">{errorMessage}</p>}
+                </div>
                 <div className="flex items-center space-x-2">
                     <Switch checked={viewMode === 'table'} onCheckedChange={(checked) => setViewMode(checked ? 'table' : 'card')} />
                     <span>{viewMode === 'table' ? 'Table View' : 'Card View'}</span>
                 </div>
-            </div>
+            </div >
 
             <Button onClick={() => { setIsModalOpen(true); setActiveTab('general'); }} className="mb-6">
                 Create Requirements
@@ -716,7 +782,7 @@ const Requirements = () => {
                                             <SelectItem value="low">Low</SelectItem>
                                             <SelectItem value="medium">Medium</SelectItem>
                                             <SelectItem value="high">High</SelectItem>
-                                        </SelectContent>
+                                    </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="grid gap-2">
@@ -744,141 +810,7 @@ const Requirements = () => {
                             </div>
                         </TabsContent>
                     </Tabs>
-                </DialogContent>
-            </Dialog >
-
-            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>Edit Requirement</DialogTitle>
-                        <DialogDescription>Update the requirement details.</DialogDescription>
-                    </DialogHeader>
-                    <Tabs value={activeTab}>
-                        <TabsList className="mb-4">
-                            <TabsTrigger value="general" onClick={() => setActiveTab('general')}>General</TabsTrigger>
-                            <TabsTrigger value="details" onClick={() => setActiveTab('details')}>Details</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="general">
-                            <div className="grid gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="taskTitle">Requirement Title</Label>
-                                    <Input
-                                        id="taskTitle"
-                                        placeholder="Enter requirement title"
-                                        value={editTask?.taskTitle || ''}
-                                        onChange={(e) => setEditTask({ ...editTask, taskTitle: e.target.value } as Task)}
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="taskDescription">Requirement Description</Label>
-                                    <Input
-                                        id="taskDescription"
-                                        placeholder="Enter requirement description"
-                                        value={editTask?.taskDescription || ''}
-                                        onChange={(e) => setEditTask({ ...editTask, taskDescription: e.target.value } as Task)}
-                                    />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="category">Category</Label>
-                                    <Select value={editTask?.category || ''} onValueChange={(value) => setEditTask({ ...editTask, category: value } as Task)}>
-                                        <SelectTrigger className="w-[280px]">
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Requirement">Requirement</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex justify-between mt-4">
-                                    <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
-                                    <Button onClick={handleNext}>Next</Button>
-                                </div>
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="details">
-                            <div className="grid gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="dueDate">Due Date</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className={`w-[280px] justify-start text-left font-normal ${!editTask?.dueDate && 'text-muted-foreground'}`}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {editTask?.dueDate ? format(new Date(editTask.dueDate), 'PPP') : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="single"
-                                                selected={editTask?.dueDate ? new Date(editTask.dueDate) : undefined}
-                                                onSelect={(date) => setEditTask({ ...editTask, dueDate: date?.toISOString() || '' } as Task)}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="assignedToId">Assigned To</Label>
-                                    <Select
-                                        value={editTask?.assignedToId ? editTask.assignedToId.toString() : ''}
-                                        onValueChange={(value) => {
-                                            const selectedEmployee = employees.find(emp => emp.id === parseInt(value));
-                                            setEditTask({ ...editTask, assignedToId: parseInt(value), assignedToName: selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : 'Unknown' } as Task);
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-[280px]">
-                                            <SelectValue placeholder="Select an employee" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {employees.map((employee) => (
-                                                <SelectItem key={employee.id} value={employee.id.toString()}>
-                                                    {employee.firstName} {employee.lastName}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="priority">Priority</Label>
-                                    <Select value={editTask?.priority || ''} onValueChange={(value) => setEditTask({ ...editTask, priority: value } as Task)}>
-                                        <SelectTrigger className="w-[280px]">
-                                            <SelectValue placeholder="Select a priority" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="low">Low</SelectItem>
-                                            <SelectItem value="medium">Medium</SelectItem>
-                                            <SelectItem value="high">High</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="storeId">Store</Label>
-                                    <Select
-                                        value={editTask?.storeId ? editTask.storeId.toString() : ''}
-                                        onValueChange={(value) => setEditTask({ ...editTask, storeId: parseInt(value) } as Task)}
-                                    >
-                                        <SelectTrigger className="w-[280px]">
-                                            <SelectValue placeholder="Select a store" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {stores.map((store) => (
-                                                <SelectItem key={store.id} value={store.id.toString()}>
-                                                    {store.storeName}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex justify-between mt-4">
-                                    <Button variant="outline" onClick={handleBack}>Back</Button>
-                                    <Button onClick={editTaskDetails}>Save</Button>
-                                </div>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-                </DialogContent>
+                </DialogContent >
             </Dialog >
 
             {viewMode === 'card' ? (
@@ -898,7 +830,9 @@ const Requirements = () => {
                                     ) &&
                                     (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
                                     (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status)
+                                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
+                                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
+                                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
                             )
                             .map(renderTaskCard)
                     )}
@@ -910,19 +844,6 @@ const Requirements = () => {
             )}
 
             <div className="mt-8 flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                    <span>Items per page:</span>
-                    <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                        <SelectTrigger className="w-20">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="20">20</SelectItem>
-                            <SelectItem value="50">50</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
                 {renderPagination()}
             </div>
         </div >

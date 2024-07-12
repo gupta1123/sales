@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch, fetchUserInfo } from '../store';
-import { useRouter } from 'next/router';
 import { ChevronUpIcon, ChevronDownIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { format, parseISO, subDays } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -12,6 +12,10 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { ClipLoader } from 'react-spinners';
 import EmployeeCard1 from './EmployeeCard1';
+
+
+
+
 
 interface Visit {
   id: string;
@@ -495,8 +499,19 @@ const Dashboard = () => {
   const role = useSelector((state: RootState) => state.auth.role);
   const teamId = useSelector((state: RootState) => state.auth.teamId);
   const username = useSelector((state: RootState) => state.auth.username);
-
   const router = useRouter();
+  const { state, employee } = router.query;
+
+
+  useEffect(() => {
+    if (state && typeof state === 'string') {
+      setSelectedState(state);
+    }
+    if (employee && typeof employee === 'string') {
+      setSelectedEmployee(employee);
+    }
+  }, [state, employee]);
+
 
   useEffect(() => {
     if (token && username && !role) {
@@ -586,10 +601,21 @@ const Dashboard = () => {
   const handleStateClick = (state: string) => {
     setSelectedState(state.trim().toLowerCase() || 'unknown');
     setSelectedEmployee(null);
+    router.push({
+      pathname: '/Dashboard',
+      query: { state: state.trim().toLowerCase() || 'unknown' }
+    }, undefined, { shallow: true });
   };
 
   const handleEmployeeClick = (employeeName: string) => {
     setSelectedEmployee(employeeName.trim().toLowerCase());
+    router.push({
+      pathname: '/Dashboard',
+      query: {
+        state: selectedState,
+        employee: employeeName.trim().toLowerCase()
+      }
+    }, undefined, { shallow: true });
   };
 
   const handleDateRangeChange = (start: string, end: string, option: string) => {
@@ -599,8 +625,13 @@ const Dashboard = () => {
   };
 
   const handleViewDetails = (visitId: string) => {
-    sessionStorage.setItem('previousPage', 'EmployeeCard1');
-    router.replace(`/VisitDetailPage/${visitId}`);
+    router.push({
+      pathname: `/VisitDetailPage/${visitId}`,
+      query: {
+        returnState: selectedState,
+        returnEmployee: selectedEmployee
+      }
+    });
   };
 
   const states = Array.from(new Set(visits.map((visit) => visit.state.trim().toLowerCase() || 'unknown')));

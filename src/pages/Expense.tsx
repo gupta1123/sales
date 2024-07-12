@@ -493,6 +493,9 @@ const ExpensePage = () => {
                                 const isExpanded = expandedCard === employeeName;
                                 const paginatedExpenses = isExpanded ? paginate(expenses, currentPage, itemsPerPageCard) : [];
 
+                                // Calculate total pages for this employee's expenses
+                                const totalPagesForEmployee = Math.ceil(expenses.length / itemsPerPageCard);
+
                                 return (
                                     <div key={employeeName} className={`col-span-1 ${isExpanded ? 'row-span-2' : ''}`}>
                                         <Card className="p-3 bg-white shadow-md rounded-lg h-full">
@@ -564,14 +567,15 @@ const ExpensePage = () => {
                                                             </Button>
                                                         </div>
                                                     </div>
+
                                                 ))}
-                                                {isExpanded && totalPagesCard > 1 && (
+                                                {isExpanded && totalPagesForEmployee > 1 && (
                                                     <Pagination className="flex justify-center items-center mt-4">
                                                         <PaginationPrevious
                                                             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                                                         />
                                                         <PaginationContent>
-                                                            {getPaginationGroup(totalPagesCard).map((page, index) => (
+                                                            {getPaginationGroup(totalPagesForEmployee).map((page, index) => (
                                                                 <PaginationItem key={index}>
                                                                     <PaginationLink
                                                                         isActive={page === currentPage}
@@ -583,7 +587,7 @@ const ExpensePage = () => {
                                                             ))}
                                                         </PaginationContent>
                                                         <PaginationNext
-                                                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPagesCard))}
+                                                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPagesForEmployee))}
                                                         />
                                                     </Pagination>
                                                 )}

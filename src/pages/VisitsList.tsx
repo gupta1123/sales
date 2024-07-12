@@ -60,12 +60,27 @@ const fetchVisitsForTeam = async (
   teamId: number,
   startDate: Date | undefined,
   endDate: Date | undefined,
+  purpose: string,
+  storeName: string,
+  sortColumn: string | null,
+  sortDirection: 'asc' | 'desc',
   currentPage: number,
   itemsPerPage: number
 ) => {
   const formattedStartDate = startDate ? format(startDate, 'yyyy-MM-dd') : '';
   const formattedEndDate = endDate ? format(endDate, 'yyyy-MM-dd') : '';
-  const url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getForTeam?teamId=${teamId}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&page=${currentPage - 1}&size=${itemsPerPage}&sort=visitDate,desc`;
+  let url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getForTeam?teamId=${teamId}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&page=${currentPage - 1}&size=${itemsPerPage}`;
+
+  if (sortColumn) {
+    url += `&sort=${sortColumn},${sortDirection}`;
+  }
+
+  if (purpose) {
+    url += `&purpose=${encodeURIComponent(purpose)}`;
+  }
+  if (storeName) {
+    url += `&storeName=${encodeURIComponent(storeName)}`;
+  }
 
   const headers: { Authorization?: string } = {};
   if (token) {
@@ -94,6 +109,10 @@ const fetchAllVisitsForTeam = async (
       teamId,
       startDate,
       endDate,
+      '',
+      '',
+      sortColumn,
+      sortDirection,
       page + 1,
       itemsPerPage
     );
@@ -160,9 +179,6 @@ const VisitsList: React.FC = () => {
       setEmployeeName(cleanedEmployeeName);
     }
 
-    console.log('selectedDate', selectedDate);
-    console.log('cleanedEmployeeName', employeeName);
-
     if (selectedDate && storedEmployeeName) {
       const encodedEmployeeName = encodeURIComponent(employeeName);
 
@@ -175,8 +191,7 @@ const VisitsList: React.FC = () => {
 
       axios.get(url, { headers })
         .then(response => {
-          console.log('API Response:', response.data);
-          setVisitsNavigate(response.data.content)
+          setVisitsNavigate(response.data.content);
         })
         .catch(error => {
           console.error('Error fetching data:', error);
@@ -268,6 +283,10 @@ const VisitsList: React.FC = () => {
           teamId,
           startDate,
           endDate,
+          purpose,
+          storeName,
+          sortColumn,
+          sortDirection,
           currentPage,
           itemsPerPage
         );

@@ -1,6 +1,8 @@
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+'use client';
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, subDays, differenceInDays } from 'date-fns';
 import { CalendarIcon, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +13,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Pagination, PaginationContent, PaginationLink, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import './Requirements.css';
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,9 +26,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from "@/components/ui/badge";
-import { User, MapPin } from 'lucide-react';
-
 
 interface Task {
     id: number;
@@ -42,7 +41,7 @@ interface Task {
     storeId: number;
     storeName: string;
     storeCity: string;
-    taskType: string;  // Add this line
+    taskType: string;
 }
 
 interface Employee {
@@ -72,26 +71,35 @@ const Complaints = () => {
         storeId: 0,
         storeName: '',
         storeCity: '',
-        taskType: 'complaint'  // Add this line
+        taskType: 'complaint'
     });
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('general');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [sortColumn, setSortColumn] = useState('id');
     const [sortDirection, setSortDirection] = useState('desc');
-    const [filters, setFilters] = useState({ employee: '', priority: '', status: '', search: '' });
-    const token = useSelector((state: RootState) => state.auth.token);
-    const role = useSelector((state: RootState) => state.auth.role);
-    const teamId = useSelector((state: RootState) => state.auth.teamId);
+    const [filters, setFilters] = useState({
+        employee: '',
+        priority: '',
+        status: '',
+        search: '',
+        startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+        endDate: format(new Date(), 'yyyy-MM-dd')
+    });
+    const [viewMode, setViewMode] = useState('card');
     const [isLoading, setIsLoading] = useState(true);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const token = useSelector((state: RootState) => state.auth.token);
+    const role = useSelector((state: RootState) => state.auth.role);
+    const teamId = useSelector((state: RootState) => state.auth.teamId);
 
     useEffect(() => {
         fetchTasks();
-    }, [token, currentPage, itemsPerPage, sortColumn, sortDirection, filters]);
+    }, [token, currentPage, sortColumn, sortDirection, filters]);
 
     useEffect(() => {
         if (isModalOpen) {
@@ -99,6 +107,32 @@ const Complaints = () => {
             fetchStores();
         }
     }, [isModalOpen, token]);
+
+    useEffect(() => {
+        if (errorMessage) {
+            const timer = setTimeout(() => {
+                setErrorMessage(null);
+            }, 20000); // 20 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [errorMessage]);
+
+    const handleDateChange = (key: string, value: string) => {
+        const newFilters = { ...filters, [key]: value };
+
+        if (newFilters.startDate && newFilters.endDate) {
+            const startDate = new Date(newFilters.startDate);
+            const endDate = new Date(newFilters.endDate);
+
+            if (differenceInDays(endDate, startDate) > 30) {
+                setErrorMessage('Date range should not exceed 30 days');
+                return;
+            }
+        }
+
+        setFilters(newFilters);
+    };
 
     const handleNext = () => {
         setActiveTab('details');
@@ -120,8 +154,8 @@ const Complaints = () => {
         setIsLoading(true);
         try {
             const url = role === 'MANAGER' ?
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeam?id=${teamId}` :
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getAll?page=${currentPage - 1}&size=${itemsPerPage}&sort=${sortColumn},${sortDirection}`;
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${filters.startDate}&end=${filters.endDate}&id=${teamId}` :
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${filters.startDate}&end=${filters.endDate}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -214,7 +248,7 @@ const Complaints = () => {
                 storeId: 0,
                 storeName: '',
                 storeCity: '',
-                taskType: 'complaint'  // Add this line
+                taskType: 'complaint'
             });
             setIsModalOpen(false);
         } catch (error) {
@@ -277,14 +311,6 @@ const Complaints = () => {
         setCurrentPage(page);
     };
 
-    const handleItemsPerPageChange = (value: string) => {
-        const newValue = parseInt(value, 10);
-        if (!isNaN(newValue)) {
-            setItemsPerPage(newValue);
-            setCurrentPage(1);
-        }
-    };
-
     const handleFilterChange = (key: string, value: string) => {
         setFilters((prevFilters) => ({
             ...prevFilters,
@@ -325,7 +351,7 @@ const Complaints = () => {
     };
 
     const renderPagination = () => {
-        const totalPages = Math.ceil(tasks.length / itemsPerPage);
+        const totalPages = Math.ceil(tasks.length / 10);
         const pageNumbers = [];
         const displayPages = 5;
 
@@ -452,54 +478,119 @@ const Complaints = () => {
         </Card>
     );
 
+    const renderTableView = () => (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Due Date</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {tasks.map(task => (
+                    <TableRow key={task.id}>
+                        <TableCell>{task.taskTitle}</TableCell>
+                        <TableCell>{task.taskDescription}</TableCell>
+                        <TableCell>{task.assignedToName}</TableCell>
+                        <TableCell>{task.priority}</TableCell>
+                        <TableCell>{task.status}</TableCell>
+                        <TableCell>{format(new Date(task.dueDate), 'MMM d, yyyy')}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
+
     return (
         <div className="container mx-auto py-12 outlined-container">
             <h1 className="text-3xl font-bold mb-6">Complaints Management</h1>
-            <div className="mb-4 flex space-x-4">
-                <Input
-                    placeholder="Search by description or store name"
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
-                <Select value={filters.employee} onValueChange={(value) => handleFilterChange('employee', value)}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Filter by employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Employees</SelectItem>
-                        {employees.map((employee) => (
-                            <SelectItem key={employee.id} value={employee.id.toString()}>
-                                {employee.firstName} {employee.lastName}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Filter by priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Priorities</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Assigned">Assigned</SelectItem>
-                        <SelectItem value="Work In Progress">Work In Progress</SelectItem>
-                        <SelectItem value="Complete">Complete</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="mb-4 flex flex-col space-y-4">
+                <div className="flex space-x-4">
+                    <Input
+                        placeholder="Search by description or store name"
+                        value={filters.search}
+                        onChange={(e) => handleFilterChange('search', e.target.value)}
+                        className="w-[150px]" // Custom width for the search input
+                    />
+                    <Select value={filters.employee} onValueChange={(value) => handleFilterChange('employee', value)}>
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Filter by employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Employees</SelectItem>
+                            {employees.map((employee) => (
+                                <SelectItem key={employee.id} value={employee.id.toString()}>
+                                    {employee.firstName} {employee.lastName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Filter by priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Priorities</SelectItem>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="Assigned">Assigned</SelectItem>
+                            <SelectItem value="Work In Progress">Work In Progress</SelectItem>
+                            <SelectItem value="Complete">Complete</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={`w-[200px] justify-start text-left font-normal ${!filters.startDate && 'text-muted-foreground'}`}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.startDate ? format(new Date(filters.startDate), 'PPP') : <span>Start Date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={filters.startDate ? new Date(filters.startDate) : undefined}
+                                onSelect={(date) => handleDateChange('startDate', date?.toISOString() || '')}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={`w-[200px] justify-start text-left font-normal ${!filters.endDate && 'text-muted-foreground'}`}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.endDate ? format(new Date(filters.endDate), 'PPP') : <span>End Date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={filters.endDate ? new Date(filters.endDate) : undefined}
+                                onSelect={(date) => handleDateChange('endDate', date?.toISOString() || '')}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={() => { setIsModalOpen(true); setActiveTab('general'); }} className="ml-4">
+                        Log New Complaint
+                    </Button>
+                </div>
+                {errorMessage && <p className="text-red-600 mt-2">{errorMessage}</p>}
             </div>
-            <Button onClick={() => { setIsModalOpen(true); setActiveTab('general'); }} className="mb-6">
-                Log New Complaint
-            </Button>
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
@@ -634,42 +725,37 @@ const Complaints = () => {
                 </DialogContent>
             </Dialog>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {isLoading ? (
-                    <p>Loading...</p>
-                ) : tasks.length === 0 ? (
-                    <p>No complaints found.</p>
-                ) : (
-                    tasks
-                        .filter(
-                            (task) =>
-                                task.taskType === 'complaint' &&
-                                (
-                                    (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
-                                    (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
-                                ) &&
-                                (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
-                                (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                                (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status)
-                        )
-                        .map(renderComplaintCard)
-                )}
-            </div>
+            {viewMode === 'card' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {isLoading ? (
+                        <p>Loading...</p>
+                    ) : tasks.length === 0 ? (
+                        <p>No complaints found.</p>
+                    ) : (
+                        tasks
+                            .filter(
+                                (task) =>
+                                    task.taskType === 'complaint' &&
+                                    (
+                                        (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
+                                        (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
+                                    ) &&
+                                    (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
+                                    (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
+                                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
+                                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
+                                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
+                            )
+                            .map(renderComplaintCard)
+                    )}
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    {renderTableView()}
+                </div>
+            )}
 
             <div className="mt-8 flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                    <span>Items per page:</span>
-                    <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
-                        <SelectTrigger className="w-20">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="10">10</SelectItem>
-                            <SelectItem value="20">20</SelectItem>
-                            <SelectItem value="50">50</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
                 {renderPagination()}
             </div>
         </div>

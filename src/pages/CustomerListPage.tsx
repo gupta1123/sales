@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from 'react-query';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { QueryKey, isError as isQueryError } from 'react-query';
+import { QueryKey } from 'react-query';
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import ChangeFieldOfficerDialog from './ChangeFieldOfficerDialog';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,7 +16,6 @@ import {
     PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { FiPhone, FiUser, FiDollarSign, FiTarget, FiBriefcase } from "react-icons/fi";
 import { HomeOutlined, SettingOutlined } from '@ant-design/icons';
 import Link from 'next/link';
@@ -36,6 +35,7 @@ import AddCustomerModal from './AddCustomerModal';
 import { AiFillCaretDown } from "react-icons/ai";
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { useRouter } from 'next/router';
 
 const queryClient = new QueryClient();
 
@@ -68,6 +68,7 @@ type Customer = {
 };
 
 function CustomerListContent() {
+    const router = useRouter();
     const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
     const [selectedColumns, setSelectedColumns] = useState<string[]>([
         'shopName', 'ownerName', 'city', 'state', 'phone', 'monthlySales', 'intentLevel', 'fieldOfficer',
@@ -98,7 +99,7 @@ function CustomerListContent() {
     const teamId = useSelector((state: RootState) => state.auth.teamId);
 
     const fetchFilteredCustomers = async ({ queryKey }: { queryKey: any }) => {
-        const { page, size, filters, sortColumn, sortDirection } = queryKey[1];
+        const { page, size, filters, sortColumn, sortDirection, role, teamId } = queryKey[1];
 
         let url: string;
         const queryParams = new URLSearchParams();
@@ -108,7 +109,6 @@ function CustomerListContent() {
             queryParams.append('teamId', teamId.toString());
         } else {
             url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/filteredValues`;
-            // Add filter parameters for non-manager roles
             if (filters.storeName) queryParams.append('storeName', filters.storeName);
             if (filters.primaryContact) queryParams.append('primaryContact', filters.primaryContact);
             if (filters.ownerName) queryParams.append('ownerName', filters.ownerName);
@@ -183,7 +183,6 @@ function CustomerListContent() {
                     },
                 });
                 if (response.ok) {
-                    // Invalidate the customers cache to refetch the updated data
                     queryClient.invalidateQueries('customers');
                     closeDeleteModal();
                 } else {
@@ -356,7 +355,6 @@ function CustomerListContent() {
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-
                         </>
                     )}
                     <Button variant="outline" onClick={openModal}>
@@ -571,7 +569,6 @@ function CustomerListContent() {
 
                     <TableBody>
                         {customers.map((customer: Customer) => (
-
                             <TableRow key={customer.storeId}>
                                 {selectedColumns.includes('shopName') && <TableCell>{customer.storeName || ''}</TableCell>}
                                 {selectedColumns.includes('ownerName') && (
@@ -624,7 +621,7 @@ function CustomerListContent() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onSelect={() => window.location.href = `/CustomerDetailPage/${customer.storeId}`}>
+                                            <DropdownMenuItem onSelect={() => router.push(`/CustomerDetailPage/${customer.storeId}`)}>
                                                 View
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
