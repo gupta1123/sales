@@ -7,7 +7,7 @@ import { RootState } from '../store';
 import VisitsTable from '../components/VisitList/VisitsTable';
 import VisitsFilter from '../components/VisitList/VisitsFilter';
 import { Visit } from '../components/VisitList/types';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 import { stringify } from 'csv-stringify';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationLink, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
@@ -138,7 +138,7 @@ const VisitsList: React.FC = () => {
   const { date, employeeName: stateEmployeeName } = state || {};
 
   const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
-  const [startDate, setStartDate] = useState<Date | undefined>(date ? new Date(date as string) : subDays(new Date(), 2));
+  const [startDate, setStartDate] = useState<Date | undefined>(date ? new Date(date as string) : subDays(new Date(), 7));
   const [endDate, setEndDate] = useState<Date | undefined>(date ? new Date(date as string) : new Date());
   const [sortColumn, setSortColumn] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -243,7 +243,13 @@ const VisitsList: React.FC = () => {
   };
 
   useEffect(() => {
-    loadStateFromLocalStorage();
+    // Clear dates from local storage if not explicitly set
+    if (!localStorage.getItem('selectedDate')) {
+      setStartDate(subDays(new Date(), 7));
+      setEndDate(new Date());
+    } else {
+      loadStateFromLocalStorage();
+    }
   }, []);
 
   useEffect(() => {
@@ -570,21 +576,20 @@ const VisitsList: React.FC = () => {
         onExport={fetchAndExportAllVisits}
         selectedColumns={selectedColumns}
         viewMode={viewMode}
-        startDate={localStorage.getItem('selectedDate') ? new Date(localStorage.getItem('selectedDate')!) : startDate}
+        startDate={startDate}
         setStartDate={setStartDate}
-        endDate={localStorage.getItem('selectedDate') ? new Date(localStorage.getItem('selectedDate')!) : endDate}
+        endDate={endDate}
         setEndDate={setEndDate}
         purpose={purpose}
         setPurpose={setPurpose}
         storeName={storeName}
         setStoreName={setStoreName}
-        employeeName={localStorage.getItem('employeeName') || employeeName}
+        employeeName={employeeName}
         setEmployeeName={setEmployeeName}
       />
 
       <br />
       <VisitsTable
-        // visits={visits}
         visits={visits.length > 0 ? visits : visitsNavigate}
         selectedColumns={selectedColumns}
         sortColumn={sortColumn}

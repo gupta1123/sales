@@ -1,3 +1,4 @@
+/* Ensure the styles are in your CSS file */
 body {
   font-family: 'Poppins', sans-serif;
   margin: 0;
@@ -10,6 +11,27 @@ body {
   display: flex;
   justify-content: center;
   padding: 20px;
+}
+
+.avatar {
+  margin: 0 auto 15px;
+  border-radius: 50%;
+  /* Ensure the avatar is circular */
+  overflow: hidden;
+  /* This ensures the gradient doesn't spill outside the circle */
+}
+
+.custom-avatar {
+  width: 100px !important;
+  height: 100px !important;
+  background: linear-gradient(135deg, #4a90e2 0%, #f5a623 100%) !important;
+}
+
+.custom-avatar-fallback {
+  color: white !important;
+  font-size: 36px !important;
+  font-weight: bold !important;
+  background: transparent !important;
 }
 
 .employeeDetails {
@@ -48,17 +70,10 @@ body {
 }
 
 .avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4a90e2, #f5a623);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
-  font-weight: bold;
   margin: 0 auto 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .profile h2 {
@@ -308,6 +323,8 @@ body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  margin-top: 20px;
+  /* Add space between filter and cards */
 }
 
 .visitCard {
@@ -323,33 +340,47 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.visitHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
 .storeName {
   font-weight: 600;
   color: #2a6ae9;
-  margin-bottom: 0.5rem;
 }
 
 .visitDate {
-  display: flex;
-  align-items: center;
+  font-size: 12px;
+  color: #757575;
+}
+
+.visitDetail {
+  font-size: 14px;
+  color: #333333;
   margin-bottom: 0.5rem;
-  color: #767676;
 }
 
-.visitDate .icon {
-  margin-right: 0.5rem;
+.visitDetail strong {
+  font-weight: 600;
 }
 
-.statusBadge {
-  margin-bottom: 1rem;
+.visitStatus {
+  font-size: 14px;
+  color: #757575;
 }
 
-.visitDetails {
-  color: #333;
+.visitStatus.completed {
+  color: green;
 }
 
-.visitDetails .icon {
-  margin-right: 0.5rem;
+.visitStatus.scheduled {
+  color: blue;
+}
+
+.visitStatus.in-progress {
+  color: orange;
 }
 
 .attendanceGrid {
@@ -376,6 +407,56 @@ body {
   font-size: 24px;
   font-weight: 600;
   color: #4a90e2;
+}
+
+.pricingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.pricingCard {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pricingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.pricingBrand {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #007bff;
+  /* Change this to your primary blue color */
+}
+
+.pricingCategory {
+  font-size: 0.9em;
+  color: #888;
+}
+
+.pricingBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pricingPrice {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.pricingChange {
+  font-size: 0.9em;
+  color: #888;
 }
 
 .expensesGrid {

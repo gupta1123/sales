@@ -14,7 +14,7 @@ interface AuthState {
   lastName: null | string;
   teamId: null | number;
   officeManagerId: number | null;
-
+  isModalOpen: boolean; // Add this line
 }
 
 interface LoginResponse {
@@ -75,6 +75,8 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
         await dispatch(fetchTeamInfo());
       }
 
+      await dispatch(checkDailyPricing()); // Check daily pricing after login
+
       return { role, token };
     } catch (error: any) {
       console.error('Login error:', error);
@@ -93,7 +95,6 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
     }
   }
 );
-
 
 export const fetchUserInfo = createAsyncThunk<UserInfo, string, { rejectValue: string }>(
   'auth/fetchUserInfo',
@@ -122,6 +123,24 @@ export const fetchTeamInfo = createAsyncThunk<TeamInfo | null, void, { rejectVal
       return response.data[0]; // Assuming the API returns an array with one item
     } catch (error: any) {
       console.error('Error fetching team info:', error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const checkDailyPricing = createAsyncThunk<void, void, { rejectValue: string }>(
+  'auth/checkDailyPricing',
+  async (_, { rejectWithValue, dispatch }) => {
+    const today = new Date().toISOString().split('T')[0];
+    const url = `/brand/getByDateRange?start=${today}&end=${today}`;
+    try {
+      const response = await api.get(url);
+      const isPricingCreated = response.data.some((item: any) => item.brandName === 'Gajkesari');
+      if (!isPricingCreated) {
+        dispatch(setModalOpen(true));
+      }
+    } catch (error: any) {
+      console.error('Error checking daily pricing:', error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -156,7 +175,7 @@ const initialState: AuthState = {
   lastName: null,
   teamId: null,
   officeManagerId: null,
-
+  isModalOpen: false, // Initialize it here
 };
 
 // Auth Slice
@@ -174,6 +193,9 @@ const authSlice = createSlice({
     resetState: (state) => {
       Object.assign(state, initialState);
       delete api.defaults.headers.common['Authorization'];
+    },
+    setModalOpen: (state, action: PayloadAction<boolean>) => {
+      state.isModalOpen = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -209,7 +231,7 @@ const authSlice = createSlice({
 });
 
 // Action Creators
-export const { setToken, setRole, resetState } = authSlice.actions;
+export const { setToken, setRole, resetState, setModalOpen } = authSlice.actions;
 
 // Store Configuration
 export const store = configureStore({

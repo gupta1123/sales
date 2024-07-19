@@ -1,3 +1,5 @@
+// src/pages/EmployeeCard1.tsx
+
 import React from 'react';
 import { useRouter } from 'next/router';
 
@@ -12,7 +14,7 @@ const EmployeeCard1 = ({ employeeName, totalVisits, onClick }: EmployeeCardProps
         <div className="bg-white shadow-lg rounded-lg p-6 cursor-pointer transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105" onClick={onClick}>
             <h2 className="text-2xl font-bold mb-4 capitalize">{employeeName}</h2>
             <div className="flex justify-between">
-                <p className="text-gray-600">Total Visits: <span className="font-bold">{totalVisits}</span></p>
+                <p className="text-gray-600">Total Completed Visits: <span className="font-bold">{totalVisits}</span></p>
             </div>
         </div>
     );

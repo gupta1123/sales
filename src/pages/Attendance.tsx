@@ -121,7 +121,11 @@ const Attendance: React.FC = () => {
         .filter((employee) =>
             `${employee.firstName} ${employee.lastName}`.toLowerCase().includes(nameFilter.toLowerCase())
         )
-        .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
+        .sort((a, b) => {
+            const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+            const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
 
     return (
         <VisitListProvider>

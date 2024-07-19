@@ -76,7 +76,6 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
     }, [debouncedStoreName, debouncedEmployeeName, purpose]);
 
     const handleFilter = useCallback(() => {
-        console.log('employeeName', debouncedEmployeeName);
         onFilter({ storeName: debouncedStoreName, employeeName: debouncedEmployeeName, purpose }, false);
     }, [debouncedStoreName, debouncedEmployeeName, purpose, onFilter]);
 

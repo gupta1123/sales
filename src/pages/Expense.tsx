@@ -58,10 +58,11 @@ const ExpensePage = () => {
     const teamId = useSelector((state: RootState) => state.auth.teamId);
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
-    const [sortColumn, setSortColumn] = useState<string | null>(null);
+    const [sortColumn, setSortColumn] = useState<string>('employeeName');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
+    const [lastClickedColumn, setLastClickedColumn] = useState<string | null>(null);
     const itemsPerPageCard = 5;
     const itemsPerPageTable = 10;
 
@@ -292,6 +293,12 @@ const ExpensePage = () => {
             setSortColumn(column);
             setSortDirection('asc');
         }
+        setLastClickedColumn(column);
+        setCurrentPage(1);  // Reset to the first page on sort change
+
+        setTimeout(() => {
+            setLastClickedColumn(null);
+        }, 20000);  // Hide the icon after 20 seconds
     };
 
     const handleStatusChange = (value: string) => {
@@ -626,27 +633,27 @@ const ExpensePage = () => {
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('employeeName')} className="cursor-pointer">
                                             Field Officer Name
-                                            {sortColumn === 'employeeName' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'employeeName' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('expenseDate')} className="cursor-pointer">
                                             Date
-                                            {sortColumn === 'expenseDate' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'expenseDate' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('type')} className="cursor-pointer">
                                             Expense Category
-                                            {sortColumn === 'type' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'type' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('amount')} className="cursor-pointer">
                                             Amount
-                                            {sortColumn === 'amount' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'amount' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('description')} className="cursor-pointer">
                                             Description
-                                            {sortColumn === 'description' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'description' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead onClick={() => handleSort('approvalStatus')} className="cursor-pointer">
                                             Status
-                                            {sortColumn === 'approvalStatus' && (sortDirection === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+                                            {lastClickedColumn === 'approvalStatus' && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4 inline-block" /> : <ArrowDownIcon className="h-4 w-4 inline-block" />)}
                                         </TableHead>
                                         <TableHead>Actions</TableHead>
                                     </TableRow>

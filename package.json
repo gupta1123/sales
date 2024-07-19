@@ -49,6 +49,7 @@
     "antd": "^5.19.0",
     "axios": "^1.6.8",
     "chart.js": "^4.4.3",
+    "chartjs-adapter-moment": "^1.0.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "csv-stringify": "^6.4.6",

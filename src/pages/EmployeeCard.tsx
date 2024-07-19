@@ -25,7 +25,7 @@ interface EmployeeCardProps {
         checkinDate: string;
         checkoutDate: string;
     }[];
-    onDateClick: (date: string) => void; // Add the onDateClick prop
+    onDateClick: (date: string) => void; 
 }
 
 const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee, summary, month, year, attendanceData, onDateClick }) => {

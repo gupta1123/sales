@@ -18,6 +18,15 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationPrevious,
+    PaginationNext,
+    PaginationEllipsis,
+} from '@/components/ui/pagination';
 
 dayjs.extend(isBetween);
 
@@ -49,36 +58,35 @@ const DailyPricingPage = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [searchText, setSearchText] = useState('');
     const [selectedEmployee, setSelectedEmployee] = useState('all');
-    const [selectedStartDate, setSelectedStartDate] = useState('');
-    const [selectedEndDate, setSelectedEndDate] = useState('');
+    const [selectedStartDate, setSelectedStartDate] = useState(dayjs().format('YYYY-MM-DD'));
+    const [selectedEndDate, setSelectedEndDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [isStartDatePickerOpen, setIsStartDatePickerOpen] = useState(false);
     const [isEndDatePickerOpen, setIsEndDatePickerOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newBrand, setNewBrand] = useState<Partial<Brand>>({});
     const [noDataMessage, setNoDataMessage] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 10;
     const token = useSelector((state: RootState) => state.auth.token);
     const role = useSelector((state: RootState) => state.auth.role);
     const teamId = useSelector((state: RootState) => state.auth.teamId);
 
     useEffect(() => {
-        fetchBrandDataForCurrentWeek();
+        fetchBrandDataForToday();
         fetchEmployees();
     }, []);
 
     useEffect(() => {
-        filterBrandData();
-    }, [searchText, selectedEmployee, selectedStartDate, selectedEndDate, brandData]);
+        filterAndSortBrandData();
+    }, [searchText, selectedEmployee, selectedStartDate, selectedEndDate, brandData, currentPage]);
 
     const formatDate = (dateString: string) => {
         const date = dayjs(dateString);
         return date.format('YYYY-MM-DD');
     };
 
-    const fetchBrandDataForCurrentWeek = async () => {
-        const today = dayjs();
-        const startOfWeek = today.startOf('week').format('YYYY-MM-DD');
-        const endOfWeek = today.endOf('week').format('YYYY-MM-DD');
-        fetchBrandData(startOfWeek, endOfWeek);
+    const fetchBrandDataForToday = async () => {
+        fetchBrandData(selectedStartDate, selectedEndDate);
     };
 
     const fetchBrandData = async (start: string, end: string) => {
@@ -121,7 +129,7 @@ const DailyPricingPage = () => {
         }
     };
 
-    const filterBrandData = () => {
+    const filterAndSortBrandData = () => {
         let filtered = brandData;
 
         if (searchText) {
@@ -142,7 +150,9 @@ const DailyPricingPage = () => {
             );
         }
 
-        setFilteredBrandData(filtered);
+        filtered.sort((a, b) => dayjs(b.createdAt).unix() - dayjs(a.createdAt).unix());
+
+        setFilteredBrandData(filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage));
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,7 +197,7 @@ const DailyPricingPage = () => {
             });
 
             if (response.ok) {
-                fetchBrandDataForCurrentWeek();
+                fetchBrandDataForToday();
                 setIsModalOpen(false);
                 setNewBrand({});
             } else {
@@ -197,6 +207,8 @@ const DailyPricingPage = () => {
             console.error('Error creating brand:', error);
         }
     };
+
+    const totalPages = Math.ceil(brandData.length / rowsPerPage);
 
     return (
         <div className="container mx-auto py-8">
@@ -408,6 +420,28 @@ const DailyPricingPage = () => {
                             ))}
                         </TableBody>
                     </Table>
+                    <Pagination className="mt-4">
+                        <PaginationContent>
+                            <PaginationPrevious
+                                onClick={() => currentPage > 1 && setCurrentPage((prev) => prev - 1)}
+                                className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                            />
+                            {Array.from({ length: totalPages }, (_, index) => (
+                                <PaginationItem key={index}>
+                                    <PaginationLink
+                                        isActive={currentPage === index + 1}
+                                        onClick={() => setCurrentPage(index + 1)}
+                                    >
+                                        {index + 1}
+                                    </PaginationLink>
+                                </PaginationItem>
+                            ))}
+                            <PaginationNext
+                                onClick={() => currentPage < totalPages && setCurrentPage((prev) => prev + 1)}
+                                className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                            />
+                        </PaginationContent>
+                    </Pagination>
                 </CardContent>
             </Card>
         </div>

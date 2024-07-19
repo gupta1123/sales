@@ -136,6 +136,7 @@ const Requirements = () => {
 
         setFilters(newFilters);
     };
+
     const handleNext = () => {
         setActiveTab('details');
     };
@@ -143,7 +144,6 @@ const Requirements = () => {
     const handleBack = () => {
         setActiveTab('general');
     };
-
 
     const fetchTasks = async () => {
         setIsLoading(true);
@@ -374,9 +374,11 @@ const Requirements = () => {
         }
         return <span className={className}>{value}</span>;
     };
+
     const handleViewStore = (storeId: number) => {
         router.push(`/CustomerDetailPage/${storeId}`);
     };
+
     const handleViewFieldOfficer = (employeeId: number) => {
         router.push(`/SalesExecutive/${employeeId}`);
     };
@@ -462,7 +464,6 @@ const Requirements = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem onClick={() => { setEditTask(task); setIsModalOpen(true); }} className="text-sm">
-
                                     Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleViewStore(task.storeId)} className="text-sm">
@@ -481,6 +482,7 @@ const Requirements = () => {
                 </div>
 
                 <h4 className="text-base font-medium text-gray-700 mb-3" style={{ lineHeight: '1.4' }}>{task.taskTitle || 'Untitled Requirement'}</h4>
+                <p className="text-sm text-gray-600 mb-4">{task.taskDescription}</p>
 
                 <div className="flex justify-between mb-4 text-sm">
                     <div>
@@ -517,19 +519,19 @@ const Requirements = () => {
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Store Name</TableHead>
-                    <TableHead>Store City</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
+                    <TableHead onClick={() => handleSort('taskTitle')} className="cursor-pointer">Title</TableHead>
+                    <TableHead onClick={() => handleSort('taskDescription')} className="cursor-pointer">Description</TableHead>
+                    <TableHead onClick={() => handleSort('dueDate')} className="cursor-pointer">Due Date</TableHead>
+                    <TableHead onClick={() => handleSort('assignedToName')} className="cursor-pointer">Assigned To</TableHead>
+                    <TableHead onClick={() => handleSort('storeName')} className="cursor-pointer">Store Name</TableHead>
+                    <TableHead onClick={() => handleSort('storeCity')} className="cursor-pointer">Store City</TableHead>
+                    <TableHead onClick={() => handleSort('status')} className="cursor-pointer">Status</TableHead>
+                    <TableHead onClick={() => handleSort('priority')} className="cursor-pointer">Priority</TableHead>
                     <TableHead>Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {tasks.map((task) => (
+                {tasks.slice((currentPage - 1) * 10, currentPage * 10).map((task) => (
                     <TableRow key={task.id}>
                         <TableCell>{task.taskTitle}</TableCell>
                         <TableCell>{task.taskDescription}</TableCell>
@@ -548,7 +550,6 @@ const Requirements = () => {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuItem onClick={() => { setEditTask(task); setIsModalOpen(true); }} className="text-sm">
-
                                         Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleViewStore(task.storeId)} className="text-sm">
@@ -598,19 +599,7 @@ const Requirements = () => {
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                 />
-                <Select value={filters.employee} onValueChange={(value) => handleFilterChange('employee', value)}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Filter by employee" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Employees</SelectItem>
-                        {employees.map((employee) => (
-                            <SelectItem key={employee.id} value={employee.id.toString()}>
-                                {employee.firstName} {employee.lastName}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+
                 <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
                     <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="Filter by priority" />
@@ -782,7 +771,7 @@ const Requirements = () => {
                                             <SelectItem value="low">Low</SelectItem>
                                             <SelectItem value="medium">Medium</SelectItem>
                                             <SelectItem value="high">High</SelectItem>
-                                    </SelectContent>
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="grid gap-2">
@@ -834,6 +823,7 @@ const Requirements = () => {
                                     (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
                                     (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
                             )
+                            .slice((currentPage - 1) * 10, currentPage * 10)
                             .map(renderTaskCard)
                     )}
                 </div>

@@ -1,0 +1,155 @@
+.sites-container {
+    padding: 20px;
+    background-color: #ffffff;
+    min-height: 100vh;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 10px 15px;
+    border-radius: 20px;
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    color: #9c27b0;
+    font-weight: 500;
+}
+
+.nav-tab.active {
+    background-color: #9c27b0;
+    color: #ffffff;
+}
+
+.add-site-btn {
+    margin-bottom: 20px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    color: #000000;
+    font-weight: 500;
+}
+
+.sites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.site-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    background-color: #ffffff;
+}
+
+.site-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.site-name {
+    color: #9c27b0;
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.site-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #757575;
+    font-size: 14px;
+    margin: 0;
+}
+
+.site-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.status-indicator.active {
+    background-color: #e6f7ed;
+    color: #52c41a;
+}
+
+.status-indicator.inactive {
+    background-color: #fff1f0;
+    color: #ff4d4f;
+}
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.status-indicator.active .status-dot {
+    background-color: #52c41a;
+}
+
+.status-indicator.inactive .status-dot {
+    background-color: #ff4d4f;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-btn {
+    color: #9c27b0 !important;
+}
+
+.show-more-btn {
+    margin-top: 20px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    color: #000000;
+    font-weight: 500;
+}
+
+/* Ant Design overrides */
+.ant-btn-link {
+    padding: 0;
+    height: auto;
+}
+
+.ant-modal-content {
+    border-radius: 5px;
+}
+
+.ant-form-item-label>label {
+    font-weight: 500;
+}
+
+.ant-picker {
+    width: 100%;
+}
+
+/* Shadcn Pagination overrides */
+.pagination {
+    margin-top: 20px;
+}

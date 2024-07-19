@@ -4,56 +4,20 @@ import { AppProps } from 'next/app';
 import Sidebar from '../components/Sidebar';
 import styles from './App.module.css';
 import { Provider, useDispatch, useSelector } from 'react-redux';
-import { store, setToken, setRole, fetchUserInfo, setupAxiosDefaults, AppDispatch, RootState, loginUser } from '../store'; // Added loginUser import
-import { fetchTeamInfo, } from '../store';
-
-import React, { ReactNode, useEffect, useState } from 'react'; // Add useState import
+import { store, setToken, setRole, fetchUserInfo, setupAxiosDefaults, AppDispatch, RootState, loginUser, setModalOpen } from '../store';
+import { fetchTeamInfo } from '../store';
+import { Button, Input } from 'antd';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
-const Card = ({ children }: { children: ReactNode }) => (
-  <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">{children}</div>
-);
-
-const Input = ({ type, id, placeholder, value, onChange }: {
-  type: string;
-  id: string;
-  placeholder: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-}) => (
-  <input
-    type={type}
-    id={id}
-    placeholder={placeholder}
-    value={value}
-    onChange={onChange}
-    autoComplete="off"
-    className="w-full px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500"
-  />
-);
-
-const Button = ({ children, className, onClick, disabled }: {
-  children: ReactNode;
-  className?: string;
-  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
-  disabled?: boolean;
-}) => (
-  <button
-    className={`${className} w-full px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={onClick}
-    disabled={disabled}
-  >
-    {children}
-  </button>
-);
-
-const Typography = {
-  Title: ({ level, children }: { level: number; children: ReactNode }) => (
-    <h2 className="text-3xl font-bold mb-6 text-black">{children}</h2>
-  ),
-  Text: ({ className, children }: { className?: string; children: ReactNode }) => (
-    <p className={`${className} text-gray-600`}>{children}</p>
-  ),
+type AppPropsWithLayout = AppProps & {
+  Component: NextPage & {
+    getLayout?: (page: React.ReactElement) => React.ReactNode;
+  };
 };
 
 const LoginPage = () => {
@@ -87,10 +51,9 @@ const LoginPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
         <div className="text-center">
-          <h2 className="text-3xl font-bold mb-6 text-black">Gajkesari</h2>
+          <h2 className="text-3xl font-bold mb-6">Gajkesari</h2>
           <img src="/GajkesariLogo.jpeg" alt="Gajkesari Logo" className="mx-auto mb-6" style={{ maxWidth: '200px' }} />
           {errorMessage && <p className="text-center mb-4 text-red-500">{errorMessage}</p>}
-
           <form onSubmit={handleLogin}>
             <div className="mb-4">
               <input
@@ -131,11 +94,105 @@ const LoginPage = () => {
   );
 };
 
+const CreateDailyPricingModal = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const [newBrand, setNewBrand] = useState({
+    brandName: 'Gajkesari',
+    price: '',
+    city: '',
+   
+    employeeDto: { id: 86 }
+  });
+  const isModalOpen = useSelector((state: RootState) => state.auth.isModalOpen);
+  const token = useSelector((state: RootState) => state.auth.token);
 
-type AppPropsWithLayout = AppProps & {
-  Component: NextPage & {
-    getLayout?: (page: React.ReactElement) => React.ReactNode;
+  const handleCreateBrand = async () => {
+    const newBrandData = {
+      ...newBrand,
+      price: parseFloat(newBrand.price),
+    };
+
+    try {
+      const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/brand/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newBrandData),
+      });
+
+      if (response.ok) {
+        dispatch(setModalOpen(false));
+        setNewBrand({
+          brandName: 'Gajkesari',
+          price: '',
+          city: '',
+         
+          employeeDto: { id: 86 }
+        });
+      } else {
+        console.error('Error creating brand');
+      }
+    } catch (error) {
+      console.error('Error creating brand:', error);
+    }
   };
+
+  return (
+    <Dialog open={isModalOpen} onOpenChange={(isOpen) => dispatch(setModalOpen(isOpen))}>
+      <DialogContent className="sm:max-w-[425px] p-6">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold">Create Pricing</DialogTitle>
+          <DialogDescription className="mt-2">
+            Daily Pricing for today has not been created. Please fill out the details below.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="brandName" className="text-right">
+              Brand Name
+            </Label>
+            <Input
+              id="brandName"
+              value={newBrand.brandName}
+              disabled
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="price" className="text-right">
+              Price
+            </Label>
+            <Input
+              id="price"
+              type="number"
+              value={newBrand.price}
+              onChange={(e) => setNewBrand({ ...newBrand, price: e.target.value })}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="city" className="text-right">
+              City
+            </Label>
+            <Input
+              id="city"
+              value={newBrand.city}
+              onChange={(e) => setNewBrand({ ...newBrand, city: e.target.value })}
+              className="col-span-3"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button htmlType="submit" onClick={handleCreateBrand}>
+
+            Create
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 function MyApp({ Component, pageProps }: AppPropsWithLayout) {
@@ -144,6 +201,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   return (
     <Provider store={store}>
       <AuthWrapper>
+        <CreateDailyPricingModal />
         <div className={styles.appContainer}>
           <Sidebar />
           <main className={styles.mainContent}>{getLayout(<Component {...pageProps} />)}</main>
@@ -199,6 +257,5 @@ const AuthWrapper = ({ children }: { children: ReactNode }) => {
 
   return <>{children}</>;
 };
-
 
 export default MyApp;

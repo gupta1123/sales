@@ -1,3 +1,5 @@
+// src/pages/Dashboard.tsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector, useDispatch } from 'react-redux';
@@ -13,16 +15,12 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { ClipLoader } from 'react-spinners';
 import EmployeeCard1 from './EmployeeCard1';
 
-
-
-
-
 interface Visit {
   id: string;
   storeId: string;
   employeeId: string;
   employeeName: string;
-  purpose: string;
+  purpose: string | null;
   visit_date: string;
   storeName: string;
   state: string;
@@ -55,7 +53,7 @@ const StateCard = ({ state, totalVisits, totalEmployees, onClick }: StateCardPro
     <div className="bg-white shadow-lg rounded-lg p-6 cursor-pointer transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105" onClick={onClick}>
       <h2 className="text-2xl font-bold mb-4 capitalize">{state || 'Unknown State'}</h2>
       <div className="flex justify-between">
-        <p className="text-gray-600">Total Visits: <span className="font-bold">{totalVisits}</span></p>
+
         <p className="text-gray-600">Total Employees: <span className="font-bold">{totalEmployees}</span></p>
       </div>
     </div>
@@ -290,13 +288,13 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
 
   const getOutcomeStatus = (visit: Visit): { emoji: React.ReactNode; status: string; color: string } => {
     if (visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime) {
-      return { emoji: ' ', status: 'Completed', color: 'bg-purple-100 text-purple-800' };
+      return { emoji: '✅', status: 'Completed', color: 'bg-purple-100 text-purple-800' };
     } else if (visit.checkoutDate && visit.checkoutTime) {
-      return { emoji: ' ', status: 'Checked Out', color: 'bg-orange-100 text-orange-800' };
+      return { emoji: '🚪', status: 'Checked Out', color: 'bg-orange-100 text-orange-800' };
     } else if (visit.checkinDate && visit.checkinTime) {
-      return { emoji: ' ', status: 'On Going', color: 'bg-green-100 text-green-800' };
+      return { emoji: '⏳', status: 'On Going', color: 'bg-green-100 text-green-800' };
     }
-    return { emoji: ' ', status: 'Assigned', color: 'bg-blue-100 text-blue-800' };
+    return { emoji: '📋', status: 'Assigned', color: 'bg-blue-100 text-blue-800' };
   };
 
   const handleSort = (column: keyof Visit) => {
@@ -342,7 +340,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Visits</CardTitle>
+        <CardTitle>Recent Completed Visits</CardTitle>
       </CardHeader>
       <CardContent>
         <table className="w-full">
@@ -502,7 +500,6 @@ const Dashboard = () => {
   const router = useRouter();
   const { state, employee } = router.query;
 
-
   useEffect(() => {
     if (state && typeof state === 'string') {
       setSelectedState(state);
@@ -512,7 +509,6 @@ const Dashboard = () => {
     }
   }, [state, employee]);
 
-
   useEffect(() => {
     if (token && username && !role) {
       dispatch(fetchUserInfo(username));
@@ -520,7 +516,6 @@ const Dashboard = () => {
   }, [dispatch, token, username, role]);
 
   const isInitialMount = useRef(true);
-
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -537,8 +532,6 @@ const Dashboard = () => {
     }
   }, [startDate, endDate, token, role, teamId]);
 
-
-
   const fetchVisits = async (start: string, end: string) => {
     setIsLoading(true);
     try {
@@ -546,9 +539,8 @@ const Dashboard = () => {
 
       switch (role) {
         case 'MANAGER':
-
           if (teamId) {
-            console.log(teamId)
+            console.log(teamId);
             url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getForTeam?teamId=${teamId}&startDate=${start}&endDate=${end}`;
           } else {
             throw new Error('Team ID is missing for MANAGER role');
@@ -603,7 +595,7 @@ const Dashboard = () => {
     setSelectedEmployee(null);
     router.push({
       pathname: '/Dashboard',
-      query: { state: state.trim().toLowerCase() || 'unknown' }
+      query: { state: state.trim().toLowerCase() || 'unknown' },
     }, undefined, { shallow: true });
   };
 
@@ -613,8 +605,8 @@ const Dashboard = () => {
       pathname: '/Dashboard',
       query: {
         state: selectedState,
-        employee: employeeName.trim().toLowerCase()
-      }
+        employee: employeeName.trim().toLowerCase(),
+      },
     }, undefined, { shallow: true });
   };
 
@@ -629,21 +621,22 @@ const Dashboard = () => {
       pathname: `/VisitDetailPage/${visitId}`,
       query: {
         returnState: selectedState,
-        returnEmployee: selectedEmployee
-      }
+        returnEmployee: selectedEmployee,
+      },
     });
   };
 
   const states = Array.from(new Set(visits.map((visit) => visit.state.trim().toLowerCase() || 'unknown')));
   const stateCards = states.map((state) => {
     const stateVisits = visits.filter((visit) => (visit.state.trim().toLowerCase() || 'unknown') === state);
-    const totalVisits = stateVisits.length;
+    const completedVisits = stateVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
+
     const totalEmployees = Array.from(new Set(stateVisits.map((visit) => visit.employeeName))).length;
     return (
       <StateCard
         key={state}
         state={state.charAt(0).toUpperCase() + state.slice(1) || 'Unknown State'}
-        totalVisits={totalVisits}
+        totalVisits={completedVisits}
         totalEmployees={totalEmployees}
         onClick={() => handleStateClick(state)}
       />
@@ -736,6 +729,7 @@ const Dashboard = () => {
   }
   if (selectedState && !selectedEmployee) {
     const stateVisits = visits.filter((visit) => (visit.state.trim().toLowerCase() || 'unknown') === selectedState);
+    const completedVisits = stateVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
     const employeeVisits = stateVisits.reduce((acc: { [key: string]: Visit[] }, visit) => {
       const employeeName = visit.employeeName.trim().toLowerCase();
       if (!acc[employeeName]) {
@@ -746,16 +740,17 @@ const Dashboard = () => {
     }, {});
 
     const employeeCards = Object.entries(employeeVisits).map(([employeeName, visits]) => {
-      const totalVisits = visits.length;
+      const completedEmployeeVisits = visits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
       return (
         <EmployeeCard1
           key={employeeName}
           employeeName={employeeName.charAt(0).toUpperCase() + employeeName.slice(1)}
-          totalVisits={totalVisits}
+          totalVisits={completedEmployeeVisits}
           onClick={() => handleEmployeeClick(employeeName)}
         />
       );
     });
+
 
     return (
       <div className="container mx-auto py-8">
@@ -771,19 +766,22 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {employeeCards}
         </div>
+        <div className="mt-8">
+    
+        </div>
       </div>
     );
   }
 
   if (selectedEmployee) {
     const employeeVisits = visits.filter((visit) => visit.employeeName.trim().toLowerCase() === selectedEmployee);
+    const completedEmployeeVisits = employeeVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime);
 
-    const totalVisits = employeeVisits.length;
-    const completedVisits = employeeVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
+    const totalVisits = completedEmployeeVisits.length;
     const assignedVisits = employeeVisits.filter((visit) => !visit.checkinDate && !visit.checkinTime).length;
 
-    const visitsByPurpose = employeeVisits.reduce((acc: { [key: string]: number }, visit) => {
-      const purpose = visit.purpose.trim().toLowerCase();
+    const visitsByPurpose = completedEmployeeVisits.reduce((acc: { [key: string]: number }, visit) => {
+      const purpose = visit.purpose ? visit.purpose.trim().toLowerCase() : 'unknown';
       if (!acc[purpose]) {
         acc[purpose] = 0;
       }
@@ -805,14 +803,13 @@ const Dashboard = () => {
           </Button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <KPICard title="Total Visits" value={totalVisits} />
-          <KPICard title="Completed Visits" value={completedVisits} />
-          <KPICard title="Assigned Visits" value={assignedVisits} />
+          <KPICard title="Total Completed Visits" value={totalVisits} />
+     
         </div>
         <div className="mb-8">
           <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
         </div>
-        <VisitsTable visits={employeeVisits} onViewDetails={handleViewDetails} currentPage={currentPage} onPageChange={setCurrentPage} />
+        <VisitsTable visits={completedEmployeeVisits} onViewDetails={handleViewDetails} currentPage={currentPage} onPageChange={setCurrentPage} />
         <div className="mt-8">
           <VisitsByPurposeChart data={visitsByPurposeChartData} />
         </div>

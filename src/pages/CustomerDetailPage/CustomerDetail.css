@@ -372,7 +372,26 @@ body {
     align-items: center;
     justify-content: center;
 }
+.add-note-btn,
+.add-site-btn {
+    background-color: purple;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+}
 
+.add-note-btn i,
+.add-site-btn i {
+    margin-right: 8px;
+}
+
+.add-note-btn:hover,
+.add-site-btn:hover {
+    background-color: darkviolet;
+}
 .edit-button {
     background: var(--primary-color);
     color: white;
@@ -381,7 +400,16 @@ body {
     border-radius: 5px;
     cursor: pointer;
 }
+/* Add this CSS to your CustomerDetail.css */
+.flex-container {
+    display: flex;
+    gap: 16px;
+    /* Adjust the gap as needed */
+}
 
+.flex-item {
+    flex: 1;
+}
 .delete-button {
     background: red;
     color: white;
@@ -447,7 +475,47 @@ button:focus {
     align-items: center;
     margin-bottom: 20px;
 }
+.status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
 
+.bg-purple-100 {
+    background-color: #f3e8ff;
+}
+
+.text-purple-800 {
+    color: #5a189a;
+}
+
+.bg-blue-100 {
+    background-color: #bfdbfe;
+}
+
+.text-blue-800 {
+    color: #1e3a8a;
+}
+
+.bg-orange-100 {
+    background-color: #fed7aa;
+}
+
+.text-orange-800 {
+    color: #c05621;
+}
+
+.bg-green-100 {
+    background-color: #c6f6d5;
+}
+
+.text-green-800 {
+    color: #2f855a;
+}
 .filter-bar select {
     margin-right: 10px;
 }
