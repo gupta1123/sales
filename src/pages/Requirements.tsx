@@ -531,7 +531,7 @@ const Requirements = () => {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {tasks.slice((currentPage - 1) * 10, currentPage * 10).map((task) => (
+                {sortedTasks.slice((currentPage - 1) * 10, currentPage * 10).map((task) => (
                     <TableRow key={task.id}>
                         <TableCell>{task.taskTitle}</TableCell>
                         <TableCell>{task.taskDescription}</TableCell>
@@ -590,6 +590,22 @@ const Requirements = () => {
         </Table>
     );
 
+    const sortedTasks = tasks
+        .filter(
+            (task) =>
+                task.taskType === 'requirement' &&
+                (
+                    (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
+                    (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
+                ) &&
+                (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
+                (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
+                (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
+                (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
+                (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
+        )
+        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+
     return (
         <div className="container mx-auto py-12 outlined-container">
             <h1 className="text-3xl font-bold mb-6">Requirements Management</h1>
@@ -599,7 +615,6 @@ const Requirements = () => {
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                 />
-
                 <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
                     <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="Filter by priority" />
@@ -806,23 +821,10 @@ const Requirements = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {isLoading ? (
                         <p>Loading...</p>
-                    ) : tasks.length === 0 ? (
+                    ) : sortedTasks.length === 0 ? (
                         <p>No requirements found.</p>
                     ) : (
-                        tasks
-                            .filter(
-                                (task) =>
-                                    task.taskType === 'requirement' &&
-                                    (
-                                        (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
-                                        (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
-                                    ) &&
-                                    (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
-                                    (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
-                                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
-                                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
-                            )
+                        sortedTasks
                             .slice((currentPage - 1) * 10, currentPage * 10)
                             .map(renderTaskCard)
                     )}

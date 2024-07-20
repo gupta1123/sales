@@ -77,8 +77,6 @@ const Complaints = () => {
     const [activeTab, setActiveTab] = useState('general');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [sortColumn, setSortColumn] = useState('id');
-    const [sortDirection, setSortDirection] = useState('desc');
     const [filters, setFilters] = useState({
         employee: '',
         priority: '',
@@ -99,7 +97,7 @@ const Complaints = () => {
 
     useEffect(() => {
         fetchTasks();
-    }, [token, currentPage, sortColumn, sortDirection, filters]);
+    }, [token, currentPage, filters]);
 
     useEffect(() => {
         if (isModalOpen) {
@@ -170,7 +168,8 @@ const Complaints = () => {
                     ...task,
                     taskDescription: task.taskDescription,
                     assignedToName: task.assignedToName || 'Unknown',
-                }));
+                }))
+                .sort((a: Task, b: Task) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
             setTasks(filteredTasks);
             setIsLoading(false);
@@ -298,15 +297,6 @@ const Complaints = () => {
         }
     };
 
-    const handleSort = (column: string) => {
-        if (column === sortColumn) {
-            setSortDirection((prevDirection) => (prevDirection === 'asc' ? 'desc' : 'asc'));
-        } else {
-            setSortColumn(column);
-            setSortDirection('asc');
-        }
-    };
-
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
     };
@@ -409,7 +399,7 @@ const Complaints = () => {
     };
 
     const renderComplaintCard = (task: Task) => (
-        <Card className="mb-4 overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300" style={{ borderRadius: '12px' }}>
+        <Card key={task.id} className="mb-4 overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300" style={{ borderRadius: '12px' }}>
             <div className="p-5">
                 <div className="flex justify-between items-start mb-3">
                     <div>
@@ -491,7 +481,7 @@ const Complaints = () => {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {tasks.map(task => (
+                {tasks.slice((currentPage - 1) * 10, currentPage * 10).map(task => (
                     <TableRow key={task.id}>
                         <TableCell>{task.taskTitle}</TableCell>
                         <TableCell>{task.taskDescription}</TableCell>
@@ -733,6 +723,7 @@ const Complaints = () => {
                         <p>No complaints found.</p>
                     ) : (
                         tasks
+                            .slice((currentPage - 1) * 10, currentPage * 10)
                             .filter(
                                 (task) =>
                                     task.taskType === 'complaint' &&

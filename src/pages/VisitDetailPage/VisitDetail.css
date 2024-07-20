@@ -97,6 +97,12 @@ body {
 .red-delete-icon {
   color: red;
 }
+.back-button-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
 .action-button {
   flex: 1 0 calc(50% - 5px);
   background: var(--background-color);

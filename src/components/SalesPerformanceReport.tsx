@@ -12,8 +12,9 @@ import {
     Legend,
     TimeScale
 } from 'chart.js';
+import { ChartOptions } from 'chart.js';
 import 'chartjs-adapter-moment';
-import { Bar } from 'react-chartjs-2';
+import { Chart } from 'react-chartjs-2';
 import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -157,18 +158,19 @@ const SalesPerformanceReport = () => {
         labels: monthlyData.map(data => data.month),
         datasets: [
             {
-                type: 'bar' as const,
+                type: 'line' as const,
                 label: 'Average Monthly Sales',
-                data: monthlyData.map(data => data.avgMonthlySale),
-                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                data: monthlyData.map(data => Math.round(data.avgMonthlySale)),
                 borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1,
+                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                borderWidth: 2,
+                fill: false,
                 yAxisID: 'y',
             },
             {
                 type: 'bar' as const,
                 label: 'Average Intent Level',
-                data: monthlyData.map(data => data.avgIntent),
+                data: monthlyData.map(data => Math.round(data.avgIntent)),
                 backgroundColor: 'rgba(255, 159, 64, 0.5)',
                 borderColor: 'rgba(255, 159, 64, 1)',
                 borderWidth: 1,
@@ -186,13 +188,13 @@ const SalesPerformanceReport = () => {
         ]
     };
 
-    const chartOptions = {
+    const chartOptions: ChartOptions<'bar' | 'line'> = {
         responsive: true,
         scales: {
             x: {
-                type: 'time' as const,
+                type: 'time',
                 time: {
-                    unit: 'month' as const,
+                    unit: 'month',
                     displayFormats: {
                         month: 'MMM YYYY'
                     }
@@ -203,18 +205,26 @@ const SalesPerformanceReport = () => {
                 }
             },
             y: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: true,
-                position: 'left' as const,
+                position: 'left',
                 title: {
                     display: true,
                     text: 'Average Monthly Sales'
+                },
+                ticks: {
+                    callback: function (value) {
+                        if (typeof value === 'number') {
+                            return Math.round(value);
+                        }
+                        return value;
+                    }
                 }
             },
             y1: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: true,
-                position: 'right' as const,
+                position: 'right',
                 title: {
                     display: true,
                     text: 'Average Intent Level'
@@ -222,11 +232,19 @@ const SalesPerformanceReport = () => {
                 grid: {
                     drawOnChartArea: false,
                 },
+                ticks: {
+                    callback: function (value) {
+                        if (typeof value === 'number') {
+                            return Math.round(value);
+                        }
+                        return value;
+                    }
+                }
             },
             y2: {
-                type: 'linear' as const,
+                type: 'linear',
                 display: true,
-                position: 'right' as const,
+                position: 'right',
                 title: {
                     display: true,
                     text: 'Total Visit Count'
@@ -237,13 +255,13 @@ const SalesPerformanceReport = () => {
             }
         },
         plugins: {
-            legend: {
-                position: 'top' as const,
-            },
-            title: {
-                display: true,
-                text: 'Monthly Sales Performance Report',
-            },
+            tooltip: {
+                callbacks: {
+                    title: function (context) {
+                        return moment(context[0].parsed.x).format('MMMM YYYY');
+                    }
+                }
+            }
         },
     };
 
@@ -271,80 +289,77 @@ const SalesPerformanceReport = () => {
     return (
         <div className="space-y-6">
             <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Filter Stores</h3>
-                    <div className="flex space-x-4 mb-4">
-                        <Input
-                            placeholder="Store Name"
-                            name="storeName"
-                            value={storeNameFilter}
-                            onChange={handleFilterChange}
-                            className="w-1/2"
-                        />
-                        <Input
-                            placeholder="City"
-                            name="city"
-                            value={cityFilter}
-                            onChange={handleFilterChange}
-                            className="w-1/2"
-                        />
+                <CardContent className="p-6">
+                    <h2 className="text-2xl font-bold mb-6">Sales Performance Report</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Store Filter</label>
+                            <Input
+                                placeholder="Store Name"
+                                name="storeName"
+                                value={storeNameFilter}
+                                onChange={handleFilterChange}
+                                className="mb-2"
+                            />
+                            <Input
+                                placeholder="City"
+                                name="city"
+                                value={cityFilter}
+                                onChange={handleFilterChange}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Store Selection</label>
+                            <Select
+                                options={stores}
+                                value={selectedStore}
+                                onChange={handleStoreSelect}
+                                className="basic-single mb-2"
+                                classNamePrefix="select"
+                                placeholder="Select Store"
+                            />
+                            <div className="flex justify-between items-center">
+                                <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 0} size="sm">Previous</Button>
+                                <span className="text-sm">Page {currentPage + 1} of {totalPages}</span>
+                                <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages - 1} size="sm">Next</Button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Date Range</label>
+                            <Input
+                                type="date"
+                                name="startDate"
+                                value={startDate}
+                                onChange={handleDateChange}
+                                className="mb-2"
+                            />
+                            <Input
+                                type="date"
+                                name="endDate"
+                                value={endDate}
+                                onChange={handleDateChange}
+                            />
+                        </div>
                     </div>
-                    <Button onClick={fetchStores}>Apply Filters</Button>
+                    <div className="flex justify-end space-x-2">
+                        <Button onClick={fetchStores}>Apply Filters</Button>
+                        <Button onClick={fetchReportData} disabled={loading || !selectedStore}>
+                            Generate Report
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Store</h3>
-                    <Select
-                        options={stores}
-                        value={selectedStore}
-                        onChange={handleStoreSelect}
-                        className="basic-single"
-                        classNamePrefix="select"
-                    />
-                    <div className="mt-4">
-                        <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 0}>Previous</Button>
-                        <span className="mx-4">Page {currentPage + 1} of {totalPages}</span>
-                        <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages - 1}>Next</Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Date Range</h3>
-                    <div className="flex space-x-4">
-                        <Input
-                            type="date"
-                            name="startDate"
-                            value={startDate}
-                            onChange={handleDateChange}
-                            className="w-1/2"
-                        />
-                        <Input
-                            type="date"
-                            name="endDate"
-                            value={endDate}
-                            onChange={handleDateChange}
-                            className="w-1/2"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Button onClick={fetchReportData} disabled={loading || !selectedStore}>
-                Generate Report
-            </Button>
-
-            {loading && <p>Loading...</p>}
-            {error && <p className="text-red-500">{error}</p>}
+            {loading && <p className="text-center py-4">Loading...</p>}
+            {error && <p className="text-red-500 text-center py-4">{error}</p>}
 
             {monthlyData.length > 0 && (
                 <Card>
-                    <CardContent>
+                    <CardContent className="p-6">
                         <h2 className="text-xl font-bold mb-4">Monthly Report for {selectedStore?.label}</h2>
-                        <Bar data={chartData} options={chartOptions} />
+                        <div className="h-[500px]">
+                            <Chart type="bar" data={chartData} options={chartOptions} />
+                        </div>
                     </CardContent>
                 </Card>
             )}

@@ -1,5 +1,3 @@
-// src/pages/EmployeeCard1.tsx
-
 import React from 'react';
 import { useRouter } from 'next/router';
 

@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import axios from 'axios';
 import { Button, Modal, Input, message, Dropdown, Menu } from 'antd';
-
+import { ClockCircleOutlined, SyncOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -81,10 +81,13 @@ type VisitDetail = {
   updatedAt: string;
   storeId: number;
   employeeId: number;
+
   checkinLatitude?: number;
   checkinLongitude?: number;
   checkinTime?: string;
+  checkinDate?: string;  
   checkoutTime?: string;
+  checkoutDate?: string; 
 };
 
 type Visit = {
@@ -95,6 +98,8 @@ type Visit = {
   employeeName: string;
   visit_date: string;
   purpose: string;
+  checkinDate: string;
+  checkinTime: string;
 };
 
 type BrandProCons = {
@@ -132,7 +137,6 @@ type Store = {
 const VisitDetailPage: React.FC = () => {
   const router = useRouter();
   const { id } = router.query || {};
-
 
   const [visitDetail, setVisitDetail] = useState<VisitDetail | null>(null);
   const [activeTab, setActiveTab] = useState('visits');
@@ -367,7 +371,7 @@ const VisitDetailPage: React.FC = () => {
         );
         const data: Visit[] = await response.json();
         const sortedVisits = data.sort(
-          (a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
+          (a, b) => new Date(b.checkinDate).getTime() - new Date(a.checkinDate).getTime()
         );
         setVisits(sortedVisits);
         setIsLoading(false);
@@ -509,11 +513,10 @@ const VisitDetailPage: React.FC = () => {
   const editNote = (note: Note) => {
     setNoteContent(note.content);
     setIsEditMode(true);
-    setEditingNoteId(note.id); // Ensure this is correctly set
+    setEditingNoteId(note.id);
     setEditingNoteDetails({ employeeId: note.employeeId, storeId: note.storeId });
     setIsModalVisible(true);
   };
-
 
   const saveNote = async () => {
     if (!noteContent.trim()) return;
@@ -623,7 +626,7 @@ const VisitDetailPage: React.FC = () => {
       setEditingProCon({ ...editingProCon, [brandName]: false });
       setNewPro('');
       setNewCon('');
-      fetchVisitDetail(id as string); // Refresh the visit details
+      fetchVisitDetail(id as string);
     } catch (error) {
       console.error('Error saving Pro/Con:', error);
       message.error('Error saving Pro/Con.');
@@ -645,7 +648,7 @@ const VisitDetailPage: React.FC = () => {
           }
         }
       );
-      fetchVisitDetail(id as string); // Refresh the visit details
+      fetchVisitDetail(id as string);
     } catch (error) {
       console.error('Error deleting Pro/Con:', error);
       message.error('Error deleting Pro/Con.');
@@ -671,7 +674,7 @@ const VisitDetailPage: React.FC = () => {
       const taskToCreate = {
         ...newTask,
         taskType,
-        storeId: visitDetail?.storeId ?? 0, // Ensure storeId is a number
+        storeId: visitDetail?.storeId ?? 0,
       };
 
       const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/create', {
@@ -689,17 +692,17 @@ const VisitDetailPage: React.FC = () => {
         id: data.id,
         assignedToName: employees.find(emp => emp.id === newTask.assignedToId)?.firstName + ' ' + employees.find(emp => emp.id === newTask.assignedToId)?.lastName || 'Unknown',
         storeName: stores.find(store => store.id === newTask.storeId)?.storeName || '',
-        storeId: visitDetail?.storeId ?? 0, // Ensure storeId is a number
+        storeId: visitDetail?.storeId ?? 0,
       };
 
       if (taskType === 'requirement') {
         setRequirements(prevTasks => [
-          { ...createdTask, storeId: createdTask.storeId ?? 0 }, // Ensure storeId is a number
+          { ...createdTask, storeId: createdTask.storeId ?? 0 },
           ...prevTasks,
         ]);
       } else {
         setComplaints(prevTasks => [
-          { ...createdTask, storeId: createdTask.storeId ?? 0 }, // Ensure storeId is a number
+          { ...createdTask, storeId: createdTask.storeId ?? 0 },
           ...prevTasks,
         ]);
       }
@@ -713,7 +716,7 @@ const VisitDetailPage: React.FC = () => {
         assignedToName: '',
         assignedById: 97,
         assignedByName: '',
-        storeId: visitDetail?.storeId ?? 0, // Ensure storeId is a number
+        storeId: visitDetail?.storeId ?? 0,
         storeName: '',
         storeCity: '',
         visitId: Number(id),
@@ -776,7 +779,7 @@ const VisitDetailPage: React.FC = () => {
         }
       );
       message.success('Checked out Successfully!');
-      fetchVisitDetail(id as string); // Refresh the visit details
+      fetchVisitDetail(id as string);
     } catch (error: any) {
       if (error.response) {
         if (error.response.data.includes('Cant check out without Checking in')) {
@@ -791,6 +794,7 @@ const VisitDetailPage: React.FC = () => {
       }
     }
   };
+
   const handleDeleteTask = async (taskId: number) => {
     try {
       await axios.delete(
@@ -880,6 +884,21 @@ const VisitDetailPage: React.FC = () => {
     setPreviewVisible(true);
   };
 
+  const getStatusIcon = (status: 'Assigned' | 'On Going' | 'Checked Out' | 'Completed') => {
+    switch (status) {
+      case 'Assigned':
+        return <ClockCircleOutlined className="w-4 h-4 mr-2" />;
+      case 'On Going':
+        return <SyncOutlined className="w-4 h-4 mr-2" />;
+      case 'Checked Out':
+        return <CheckCircleOutlined className="w-4 h-4 mr-2" />;
+      case 'Completed':
+        return <CheckCircleOutlined className="w-4 h-4 mr-2" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="main-content">
       <Head>
@@ -895,8 +914,16 @@ const VisitDetailPage: React.FC = () => {
       </Head>
       <div className="visit-details">
         <aside className="left-panel">
-          <div className="back-button" onClick={() => router.push('/VisitsList')}>
-            <i className="fas fa-arrow-left"></i> Back to visits
+          <div className="back-button-container">
+            <div className="back-button" onClick={() => router.push('/VisitsList')}>
+              <i className="fas fa-arrow-left"></i> Back to visits
+            </div>
+            <div className="status-badge-wrapper">
+              <div className={`status-badge ${visitStatus.color}`}>
+                {getStatusIcon(visitStatus.status as 'Assigned' | 'On Going' | 'Checked Out' | 'Completed')}
+                {visitStatus.status}
+              </div>
+            </div>
           </div>
           <div className="profile">
             <div className="avatar">
@@ -979,11 +1006,14 @@ const VisitDetailPage: React.FC = () => {
                 <i className="fas fa-sign-in-alt"></i> Check-in
               </div>
               <div>
-                {visitDetail?.checkinTime && !isNaN(new Date(visitDetail.checkinTime).getTime())
-                  ? `${format(parseISO(visitDetail.checkinTime), "dd MMM ''yy")} ${format(parseISO(visitDetail.checkinTime), 'h:mm a')}`
-                  : 'Check-in not available'}
-
-
+                {visitDetail?.checkinDate && visitDetail?.checkinTime ? (
+                  <>
+                    <div>{format(new Date(visitDetail.checkinDate), "dd MMM yyyy")}</div>
+                    <div>{format(parseISO(`1970-01-01T${visitDetail.checkinTime}`), 'h:mm a')}</div>
+                  </>
+                ) : (
+                  'Check-in not available'
+                )}
               </div>
             </div>
             <div className="info-item">
@@ -991,11 +1021,14 @@ const VisitDetailPage: React.FC = () => {
                 <i className="fas fa-sign-out-alt"></i> Check-out
               </div>
               <div>
-                {visitDetail?.checkoutTime && !isNaN(new Date(visitDetail.checkoutTime).getTime())
-                  ? `${format(parseISO(visitDetail.checkoutTime), "dd MMM ''yy")} ${format(parseISO(visitDetail.checkoutTime), 'h:mm a')}`
-                  : 'Check-out not available'}
-
-
+                {visitDetail?.checkoutDate && visitDetail?.checkoutTime ? (
+                  <>
+                    <div>{format(new Date(visitDetail.checkoutDate), "dd MMM yyyy")}</div>
+                    <div>{format(parseISO(`1970-01-01T${visitDetail.checkoutTime}`), 'h:mm a')}</div>
+                  </>
+                ) : (
+                  'Check-out not available'
+                )}
               </div>
             </div>
           </div>
@@ -1061,7 +1094,9 @@ const VisitDetailPage: React.FC = () => {
                   <div className="item-header">
                     <span className="item-title">{visit.purpose}</span>
                     <span className="item-status">
-                      {format(parseISO(visit.visit_date), "dd MMM ''yy h:mm a")}
+                      {visit.checkinDate && visit.checkinTime
+                        ? `${format(new Date(visit.checkinDate), "dd MMM ''yy")} ${format(parseISO(`1970-01-01T${visit.checkinTime}`), 'h:mm a')}`
+                        : 'Check-in time not available'}
                     </span>
                   </div>
                   <div className="item-content">
@@ -1126,7 +1161,6 @@ const VisitDetailPage: React.FC = () => {
               fetchVisitDetail={fetchVisitDetail}
             />
           </div>
-
 
           <div className={`tab-content ${activeTab === 'requirements' ? 'active' : ''}`} id="requirements">
             <div className="filter-bar">
@@ -1420,4 +1454,3 @@ const VisitDetailPage: React.FC = () => {
 };
 
 export default VisitDetailPage;
-
