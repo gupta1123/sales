@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { Button } from "@/components/ui/button";
@@ -52,18 +52,7 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
 
   const purposes = ['Follow Up', 'Order', 'Birthday', 'Payment', 'Others'];
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  useEffect(() => {
-    if (selectedEmployee) {
-      resetStoreSelection();
-      fetchStores();
-    }
-  }, [selectedEmployee]);
-
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       const url = role === 'MANAGER'
         ? `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/team/getbyEmployee?id=${employeeId}`
@@ -76,9 +65,9 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
-  };
+  }, [role, employeeId, token]);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
     if (isLoadingStores) return;
     setIsLoadingStores(true);
     try {
@@ -109,7 +98,18 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
     } finally {
       setIsLoadingStores(false);
     }
-  };
+  }, [role, selectedEmployee, storePage, isLoadingStores, token, teamId]);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  useEffect(() => {
+    if (selectedEmployee) {
+      resetStoreSelection();
+      fetchStores();
+    }
+  }, [selectedEmployee, fetchStores]);
 
   const resetStoreSelection = () => {
     setStores([]);

@@ -97,19 +97,9 @@ const CustomerDetailPage = () => {
     // Add other fields as necessary
   }
 
-  useEffect(() => {
-    if (token && storeId) {
-      fetchCustomerData(storeId as string);
-      fetchNotesData(storeId as string);
-      fetchVisitsData(storeId as string);
-      fetchRequirementsData(storeId as string, startDate, endDate);
-      fetchComplaintsData(storeId as string, startDate, endDate);
-      fetchEmployees();
-      fetchStores();
-      fetchIntentData(storeId as string);
-      fetchSalesData(storeId as string);
-    }
-  }, [token, storeId, startDate, endDate]);
+
+
+
   const getToken = (): string => {
     return token || '';
   };
@@ -527,7 +517,19 @@ const CustomerDetailPage = () => {
       },
     ],
   };
-
+  useEffect(() => {
+    if (token && storeId) {
+      fetchCustomerData(storeId as string);
+      fetchNotesData(storeId as string);
+      fetchVisitsData(storeId as string);
+      fetchRequirementsData(storeId as string, startDate, endDate);
+      fetchComplaintsData(storeId as string, startDate, endDate);
+      fetchEmployees();
+      fetchStores();
+      fetchIntentData(storeId as string);
+      fetchSalesData(storeId as string);
+    }
+  }, [token, storeId, startDate, endDate, fetchCustomerData, fetchNotesData, fetchVisitsData, fetchRequirementsData, fetchComplaintsData, fetchEmployees, fetchStores, fetchIntentData, fetchSalesData]);
   return (
     <div className="main-content">
       <Head>

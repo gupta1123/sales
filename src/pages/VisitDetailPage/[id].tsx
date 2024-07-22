@@ -139,7 +139,8 @@ const VisitDetailPage: React.FC = () => {
   const { id } = router.query || {};
 
   const [visitDetail, setVisitDetail] = useState<VisitDetail | null>(null);
-  const [activeTab, setActiveTab] = useState('visits');
+  const [activeTab, setActiveTab] = useState('metrics');
+
 
   const [activeInfoTab, setActiveInfoTab] = useState('visit-info');
   const [metrics, setMetrics] = useState<Metric[]>([]);
@@ -1048,17 +1049,18 @@ const VisitDetailPage: React.FC = () => {
         <section className="activity-details">
           <div className="tabs">
             <button
-              className={`tab ${activeTab === 'visits' ? 'active' : ''}`}
-              onClick={() => setActiveTab('visits')}
-            >
-              <i className="fas fa-calendar-check"></i> Visits
-            </button>
-            <button
               className={`tab ${activeTab === 'metrics' ? 'active' : ''}`}
               onClick={() => setActiveTab('metrics')}
             >
               <i className="fas fa-chart-line"></i> Metrics
             </button>
+            <button
+              className={`tab ${activeTab === 'visits' ? 'active' : ''}`}
+              onClick={() => setActiveTab('visits')}
+            >
+              <i className="fas fa-calendar-check"></i> Visits
+            </button>
+          
             <button
               className={`tab ${activeTab === 'brands' ? 'active' : ''}`}
               onClick={() => setActiveTab('brands')}

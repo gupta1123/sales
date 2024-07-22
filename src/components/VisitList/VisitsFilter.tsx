@@ -71,13 +71,15 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
         };
     }, [employeeName]);
 
-    useEffect(() => {
-        handleFilter();
-    }, [debouncedStoreName, debouncedEmployeeName, purpose]);
+  
 
     const handleFilter = useCallback(() => {
         onFilter({ storeName: debouncedStoreName, employeeName: debouncedEmployeeName, purpose }, false);
     }, [debouncedStoreName, debouncedEmployeeName, purpose, onFilter]);
+
+    useEffect(() => {
+        handleFilter();
+    }, [debouncedStoreName, debouncedEmployeeName, purpose, handleFilter]);
 
     const handleAllowClearStoreName = () => {
         setStoreName('');

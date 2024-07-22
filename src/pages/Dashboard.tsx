@@ -1,17 +1,22 @@
-// src/pages/Dashboard.tsx
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { format, parseISO, subDays } from 'date-fns';
 import { useRouter } from 'next/router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch, fetchUserInfo } from '../store';
 import { ChevronUpIcon, ChevronDownIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { format, parseISO, subDays } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  CartesianGrid
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink } from "@/components/ui/pagination";
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import { ClipLoader } from 'react-spinners';
 import EmployeeCard1 from './EmployeeCard1';
 
@@ -29,31 +34,28 @@ interface Visit {
   checkinTime: string | null;
   checkoutDate: string | null;
   checkoutTime: string | null;
+  employeeFirstName: string;
+  employeeLastName: string;
+  employeeState: string;
+  statsDto: {
+    completedVisitCount: number;
+    fullDays: number;
+    halfDays: number;
+    absences: number;
+  };
 }
 
 interface StateCardProps {
   state: string;
-  totalVisits: number;
   totalEmployees: number;
   onClick: () => void;
 }
 
-const renderSkeletons = (count: number) => {
-  return Array.from({ length: count }).map((_, index) => (
-    <div key={index} className="bg-white shadow-lg rounded-lg p-6">
-      <Skeleton height={30} width="50%" />
-      <Skeleton height={20} width="80%" />
-      <Skeleton height={20} width="60%" />
-    </div>
-  ));
-};
-
-const StateCard = ({ state, totalVisits, totalEmployees, onClick }: StateCardProps) => {
+const StateCard = ({ state, totalEmployees, onClick }: StateCardProps) => {
   return (
     <div className="bg-white shadow-lg rounded-lg p-6 cursor-pointer transition duration-300 ease-in-out transform hover:-translate-y-1 hover:scale-105" onClick={onClick}>
       <h2 className="text-2xl font-bold mb-4 capitalize">{state || 'Unknown State'}</h2>
       <div className="flex justify-between">
-
         <p className="text-gray-600">Total Employees: <span className="font-bold">{totalEmployees}</span></p>
       </div>
     </div>
@@ -285,16 +287,29 @@ interface VisitsTableProps {
 const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: VisitsTableProps) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [sortColumn, setSortColumn] = useState<keyof Visit>('visit_date');
+  const [lastClickedColumn, setLastClickedColumn] = useState<keyof Visit | null>(null);
+  const [lastClickTime, setLastClickTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (lastClickTime) {
+      const timer = setTimeout(() => {
+        setLastClickedColumn(null);
+        setLastClickTime(null);
+      }, 20000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [lastClickTime]);
 
   const getOutcomeStatus = (visit: Visit): { emoji: React.ReactNode; status: string; color: string } => {
     if (visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime) {
-      return { emoji: '✅', status: 'Completed', color: 'bg-purple-100 text-purple-800' };
+      return { emoji: ' ', status: 'Completed', color: 'bg-purple-100 text-purple-800' };
     } else if (visit.checkoutDate && visit.checkoutTime) {
-      return { emoji: '🚪', status: 'Checked Out', color: 'bg-orange-100 text-orange-800' };
+      return { emoji: ' ', status: 'Checked Out', color: 'bg-orange-100 text-orange-800' };
     } else if (visit.checkinDate && visit.checkinTime) {
-      return { emoji: '⏳', status: 'On Going', color: 'bg-green-100 text-green-800' };
+      return { emoji: ' ', status: 'On Going', color: 'bg-green-100 text-green-800' };
     }
-    return { emoji: '📋', status: 'Assigned', color: 'bg-blue-100 text-blue-800' };
+    return { emoji: ' ', status: 'Assigned', color: 'bg-blue-100 text-blue-800' };
   };
 
   const handleSort = (column: keyof Visit) => {
@@ -304,6 +319,8 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
       setSortColumn(column);
       setSortOrder('desc');
     }
+    setLastClickedColumn(column);
+    setLastClickTime(Date.now());
   };
 
   const rowsPerPage = 10;
@@ -348,7 +365,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
             <tr>
               <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('storeName')}>
                 Store
-                {sortColumn === 'storeName' && (
+                {lastClickedColumn === 'storeName' && (
                   sortOrder === 'asc' ? (
                     <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                   ) : (
@@ -358,7 +375,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
               </th>
               <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('employeeName')}>
                 Employee
-                {sortColumn === 'employeeName' && (
+                {lastClickedColumn === 'employeeName' && (
                   sortOrder === 'asc' ? (
                     <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                   ) : (
@@ -368,7 +385,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
               </th>
               <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('visit_date')}>
                 Date
-                {sortColumn === 'visit_date' && (
+                {lastClickedColumn === 'visit_date' && (
                   sortOrder === 'asc' ? (
                     <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                   ) : (
@@ -378,7 +395,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
               </th>
               <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('purpose')}>
                 Purpose
-                {sortColumn === 'purpose' && (
+                {lastClickedColumn === 'purpose' && (
                   sortOrder === 'asc' ? (
                     <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                   ) : (
@@ -388,7 +405,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
               </th>
               <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('city')}>
                 City
-                {sortColumn === 'city' && (
+                {lastClickedColumn === 'city' && (
                   sortOrder === 'asc' ? (
                     <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                   ) : (
@@ -407,7 +424,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
                 <tr key={visit.id}>
                   <td className="px-4 py-2">{visit.storeName}</td>
                   <td className="px-4 py-2 capitalize">{visit.employeeName}</td>
-                  <td className="px-4 py-2">{format(parseISO(visit.visit_date), 'MMM d, yyyy')}</td>
+                  <td className="px-4 py-2">{format(parseISO(visit.visit_date), "dd MMM ''yy")}</td>
                   <td className="px-4 py-2">{visit.purpose}</td>
                   <td className="px-4 py-2 capitalize">{visit.city}</td>
                   <td className={`px-4 py-2 ${color}`}>{emoji} {status}</td>
@@ -433,48 +450,32 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
       {totalPages > 1 && visitsToDisplay.length > 0 && (
         <Pagination>
           <PaginationContent>
-            <a
-              href="#"
-              className={`px-4 py-2 text-sm font-medium ${currentPage === 1
-                ? 'text-gray-500 cursor-not-allowed'
-                : 'text-gray-700 hover:text-gray-900'
-                }`}
-              onClick={(e) => {
-                if (currentPage !== 1) {
-                  onPageChange(currentPage - 1);
-                }
-                e.preventDefault();
-              }}
-            >
-              Previous
-            </a>
+            <PaginationItem>
+              <PaginationLink
+                onClick={() => onPageChange(currentPage - 1)}
+                className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+              >
+                Previous
+              </PaginationLink>
+            </PaginationItem>
             {Array.from({ length: totalPages }, (_, index) => (
               <PaginationItem key={index}>
                 <PaginationLink
-                  isActive={currentPage === index + 1}
                   onClick={() => onPageChange(index + 1)}
+                  className={currentPage === index + 1 ? 'bg-gray-300' : ''}
                 >
                   {index + 1}
                 </PaginationLink>
               </PaginationItem>
             ))}
-            {totalPages > 1 && currentPage !== totalPages && (
-              <a
-                href="#"
-                className={`px-4 py-2 text-sm font-medium ${currentPage === totalPages
-                  ? 'text-gray-500 cursor-not-allowed'
-                  : 'text-gray-700 hover:text-gray-900'
-                  }`}
-                onClick={(e) => {
-                  if (currentPage !== totalPages) {
-                    onPageChange(currentPage + 1);
-                  }
-                  e.preventDefault();
-                }}
+            <PaginationItem>
+              <PaginationLink
+                onClick={() => onPageChange(currentPage + 1)}
+                className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
               >
                 Next
-              </a>
-            )}
+              </PaginationLink>
+            </PaginationItem>
           </PaginationContent>
         </Pagination>
       )}
@@ -491,6 +492,10 @@ const Dashboard = () => {
   const [selectedOption, setSelectedOption] = useState('Today');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [employeeDetails, setEmployeeDetails] = useState<{
+    statsDto: { completedVisitCount: number, fullDays: number, halfDays: number, absences: number } | null,
+    visitDto: Visit[] | null
+  } | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
   const token = useSelector((state: RootState) => state.auth.token);
@@ -517,45 +522,10 @@ const Dashboard = () => {
 
   const isInitialMount = useRef(true);
 
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      // This will run only on the initial mount (including page reloads)
-      if (token && role) {
-        fetchVisits(startDate, endDate);
-      }
-    } else {
-      // This will run on dependency changes after the initial mount
-      if (token && role) {
-        fetchVisits(startDate, endDate);
-      }
-    }
-  }, [startDate, endDate, token, role, teamId]);
-
-  const fetchVisits = async (start: string, end: string) => {
+  const fetchVisits = useCallback(async (start: string, end: string) => {
     setIsLoading(true);
     try {
-      let url = '';
-
-      switch (role) {
-        case 'MANAGER':
-          if (teamId) {
-            console.log(teamId);
-            url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getForTeam?teamId=${teamId}&startDate=${start}&endDate=${end}`;
-          } else {
-            throw new Error('Team ID is missing for MANAGER role');
-          }
-          break;
-        case 'ADMIN':
-        case 'OFFICE MANAGER':
-          url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByDateRange1?start=${start}&end=${end}`;
-          break;
-        default:
-          console.warn(`Unknown user role: ${role}. Using default endpoint.`);
-          url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByDateRange1?start=${start}&end=${end}`;
-      }
-
-      const response = await fetch(url, {
+      const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getCounts?startDate=${start}&endDate=${end}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -566,19 +536,56 @@ const Dashboard = () => {
       }
 
       const data = await response.json();
-
-      if (role === 'MANAGER' || role === 'FIELD OFFICER') {
-        setVisits(data.content || []);
-      } else {
-        setVisits(data);
-      }
+      setVisits(data);
     } catch (error) {
       console.error('Error fetching visits:', error);
-      setVisits([]); // Set visits to an empty array in case of an error
+      setVisits([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
+
+  const fetchEmployeeDetails = useCallback(async (employeeName: string, start: string, end: string) => {
+    setIsLoading(true);
+    try {
+      const employeeId = visits.find(v => `${v.employeeFirstName} ${v.employeeLastName}`.toLowerCase() === employeeName.toLowerCase())?.employeeId;
+
+      if (!employeeId) {
+        throw new Error("Employee not found");
+      }
+
+      const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByDateRangeAndEmployeeStats?id=${employeeId}&start=${start}&end=${end}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch employee details: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setEmployeeDetails(data);
+    } catch (error) {
+      console.error('Error fetching employee details:', error);
+      setEmployeeDetails(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, visits]);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (token && role) {
+        fetchVisits(startDate, endDate);
+      }
+    } else {
+      if (token && role) {
+        fetchVisits(startDate, endDate);
+      }
+    }
+  }, [startDate, endDate, token, role, teamId, fetchVisits]);
 
   useEffect(() => {
     const { reset } = router.query;
@@ -590,16 +597,16 @@ const Dashboard = () => {
     }
   }, [router.query]);
 
-  const handleStateClick = (state: string) => {
+  const handleStateClick = useCallback((state: string) => {
     setSelectedState(state.trim().toLowerCase() || 'unknown');
     setSelectedEmployee(null);
     router.push({
       pathname: '/Dashboard',
       query: { state: state.trim().toLowerCase() || 'unknown' },
     }, undefined, { shallow: true });
-  };
+  }, [router]);
 
-  const handleEmployeeClick = (employeeName: string) => {
+  const handleEmployeeClick = useCallback(async (employeeName: string, employeeId: number) => {
     setSelectedEmployee(employeeName.trim().toLowerCase());
     router.push({
       pathname: '/Dashboard',
@@ -608,179 +615,96 @@ const Dashboard = () => {
         employee: employeeName.trim().toLowerCase(),
       },
     }, undefined, { shallow: true });
-  };
 
-  const handleDateRangeChange = (start: string, end: string, option: string) => {
+    fetchEmployeeDetails(employeeName, startDate, endDate);
+  }, [fetchEmployeeDetails, router, selectedState, startDate, endDate]);
+
+  const handleDateRangeChange = useCallback((start: string, end: string, option: string) => {
     setStartDate(start);
     setEndDate(end);
     setSelectedOption(option);
-  };
 
-  const handleViewDetails = (visitId: string) => {
+    if (selectedEmployee) {
+      fetchEmployeeDetails(selectedEmployee, start, end);
+    } else {
+      fetchVisits(start, end);
+    }
+  }, [fetchEmployeeDetails, fetchVisits, selectedEmployee]);
+
+  const handleViewDetails = useCallback((visitId: string) => {
     router.push({
       pathname: `/VisitDetailPage/${visitId}`,
       query: {
-        returnState: selectedState,
-        returnEmployee: selectedEmployee,
+        returnTo: 'dashboard',
+        state: selectedState,
+        employee: selectedEmployee,
       },
     });
-  };
+  }, [router, selectedEmployee, selectedState]);
 
-  const states = Array.from(new Set(visits.map((visit) => visit.state.trim().toLowerCase() || 'unknown')));
-  const stateCards = states.map((state) => {
-    const stateVisits = visits.filter((visit) => (visit.state.trim().toLowerCase() || 'unknown') === state);
-    const completedVisits = stateVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
-
-    const totalEmployees = Array.from(new Set(stateVisits.map((visit) => visit.employeeName))).length;
-    return (
-      <StateCard
-        key={state}
-        state={state.charAt(0).toUpperCase() + state.slice(1) || 'Unknown State'}
-        totalVisits={completedVisits}
-        totalEmployees={totalEmployees}
-        onClick={() => handleStateClick(state)}
-      />
-    );
-  });
-
-  const renderSkeletons = (count: number) => {
-    return Array.from({ length: count }).map((_, index) => (
-      <div key={index} className="bg-white shadow-lg rounded-lg p-6">
-        <Skeleton height={30} width="50%" />
-        <Skeleton height={20} width="80%" />
-        <Skeleton height={20} width="60%" />
-      </div>
-    ));
-  };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Sales Dashboard</h1>
-        </div>
-        <div className="flex justify-center mb-8">
-          <ClipLoader size={50} color={"#123abc"} loading={isLoading} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {renderSkeletons(6)}
-        </div>
-      </div>
-    );
-  }
-  if (isLoading && !selectedState && !selectedEmployee) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Sales Dashboard</h1>
-        </div>
-        <div className="flex justify-center mb-8">
-          <ClipLoader size={50} color={"#123abc"} loading={isLoading} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {renderSkeletons(6)}
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading && selectedState && !selectedEmployee) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold capitalize">{selectedState === 'unknown' ? 'Unknown State' : selectedState}</h1>
-          <Button variant="ghost" size="lg" onClick={() => setSelectedState(null)}>
-            <ArrowLeftIcon className="h-6 w-6" />
-          </Button>
-        </div>
-        <div className="flex justify-center mb-8">
-          <ClipLoader size={50} color={"#123abc"} loading={isLoading} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {renderSkeletons(6)}
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading && selectedEmployee) {
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold capitalize">{selectedEmployee}</h1>
-          <Button variant="ghost" size="lg" onClick={() => setSelectedEmployee(null)}>
-            <ArrowLeftIcon className="h-6 w-6" />
-          </Button>
-        </div>
-        <div className="flex justify-center mb-8">
-          <ClipLoader size={50} color={"#123abc"} loading={isLoading} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {renderSkeletons(4)}
-        </div>
-        <div className="mb-8">
-          <Skeleton height={30} width="100%" />
-        </div>
-        <div className="mt-8">
-          <Skeleton height={300} width="100%" />
-        </div>
-      </div>
-    );
-  }
-  if (selectedState && !selectedEmployee) {
-    const stateVisits = visits.filter((visit) => (visit.state.trim().toLowerCase() || 'unknown') === selectedState);
-    const completedVisits = stateVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
-    const employeeVisits = stateVisits.reduce((acc: { [key: string]: Visit[] }, visit) => {
-      const employeeName = visit.employeeName.trim().toLowerCase();
-      if (!acc[employeeName]) {
-        acc[employeeName] = [];
+  const stateCards = useMemo(() => {
+    const stateData = visits.reduce((acc: { [key: string]: { employees: Set<string>, visits: number } }, visit) => {
+      const state = (visit.employeeState || 'unknown').trim().toLowerCase();
+      if (!acc[state]) {
+        acc[state] = { employees: new Set(), visits: 0 };
       }
-      acc[employeeName].push(visit);
+      // Only count employees with completed visits
+      if (visit.statsDto && visit.statsDto.completedVisitCount > 0) {
+        acc[state].employees.add(`${visit.employeeFirstName || 'Unknown'} ${visit.employeeLastName || ''}`);
+        acc[state].visits += visit.statsDto.completedVisitCount;
+      }
       return acc;
     }, {});
 
-    const employeeCards = Object.entries(employeeVisits).map(([employeeName, visits]) => {
-      const completedEmployeeVisits = visits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime).length;
+    return Object.entries(stateData)
+      .filter(([_, data]) => data.employees.size > 0) // Only show states with active employees
+      .map(([state, data]) => {
+        return (
+          <StateCard
+            key={state}
+            state={state.charAt(0).toUpperCase() + state.slice(1) || 'Unknown State'}
+            totalEmployees={data.employees.size}
+            onClick={() => handleStateClick(state)}
+          />
+        );
+      });
+  }, [visits, handleStateClick]);
+
+  const employeeCards = useMemo(() => {
+    if (!selectedState) return [];
+
+    const stateVisits = visits.filter((visit) => (visit.employeeState.trim().toLowerCase() || 'unknown') === selectedState);
+    const employeeVisits = stateVisits.reduce((acc: { [key: string]: any }, visit) => {
+      const employeeName = visit.employeeFirstName + ' ' + visit.employeeLastName;
+      if (!acc[employeeName] && visit.statsDto && visit.statsDto.completedVisitCount > 0) {
+        acc[employeeName] = {
+          ...visit,
+          completedVisitCount: visit.statsDto.completedVisitCount
+        };
+      }
+      return acc;
+    }, {});
+
+    return Object.entries(employeeVisits).map(([employeeName, employeeData]: [string, any]) => {
       return (
         <EmployeeCard1
           key={employeeName}
           employeeName={employeeName.charAt(0).toUpperCase() + employeeName.slice(1)}
-          totalVisits={completedEmployeeVisits}
-          onClick={() => handleEmployeeClick(employeeName)}
+          totalVisits={employeeData.completedVisitCount}
+          onClick={() => handleEmployeeClick(employeeName, employeeData.employeeId)}
         />
       );
     });
+  }, [selectedState, visits, handleEmployeeClick]);
 
+  const visitsByPurposeChartData = useMemo(() => {
+    if (!employeeDetails || !employeeDetails.visitDto) return [];
 
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold capitalize">{selectedState === 'unknown' ? 'Unknown State' : selectedState}</h1>
-          <Button variant="ghost" size="lg" onClick={() => setSelectedState(null)}>
-            <ArrowLeftIcon className="h-6 w-6" />
-          </Button>
-        </div>
-        <div className="mb-8">
-          <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {employeeCards}
-        </div>
-        <div className="mt-8">
-    
-        </div>
-      </div>
+    const completedVisits = employeeDetails.visitDto.filter((visit) =>
+      visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime
     );
-  }
 
-  if (selectedEmployee) {
-    const employeeVisits = visits.filter((visit) => visit.employeeName.trim().toLowerCase() === selectedEmployee);
-    const completedEmployeeVisits = employeeVisits.filter((visit) => visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime);
-
-    const totalVisits = completedEmployeeVisits.length;
-    const assignedVisits = employeeVisits.filter((visit) => !visit.checkinDate && !visit.checkinTime).length;
-
-    const visitsByPurpose = completedEmployeeVisits.reduce((acc: { [key: string]: number }, visit) => {
+    const visitsByPurpose = completedVisits.reduce((acc: { [key: string]: number }, visit) => {
       const purpose = visit.purpose ? visit.purpose.trim().toLowerCase() : 'unknown';
       if (!acc[purpose]) {
         acc[purpose] = 0;
@@ -789,45 +713,87 @@ const Dashboard = () => {
       return acc;
     }, {});
 
-    const visitsByPurposeChartData = Object.entries(visitsByPurpose).map(([purpose, visits]) => ({
+    return Object.entries(visitsByPurpose).map(([purpose, visits]) => ({
       purpose: purpose.charAt(0).toUpperCase() + purpose.slice(1),
       visits: Number(visits),
     }));
-
-    return (
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold capitalize">{selectedEmployee}</h1>
-          <Button variant="ghost" size="lg" onClick={() => setSelectedEmployee(null)}>
-            <ArrowLeftIcon className="h-6 w-6" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <KPICard title="Total Completed Visits" value={totalVisits} />
-     
-        </div>
-        <div className="mb-8">
-          <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
-        </div>
-        <VisitsTable visits={completedEmployeeVisits} onViewDetails={handleViewDetails} currentPage={currentPage} onPageChange={setCurrentPage} />
-        <div className="mt-8">
-          <VisitsByPurposeChart data={visitsByPurposeChartData} />
-        </div>
-      </div>
-    );
-  }
+  }, [employeeDetails]);
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Sales Dashboard</h1>
-        <div className="flex">
-          <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {stateCards}
-      </div>
+      {selectedState && !selectedEmployee ? (
+        <>
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold capitalize">{selectedState === 'unknown' ? 'Unknown State' : selectedState}</h1>
+            <Button variant="ghost" size="lg" onClick={() => setSelectedState(null)}>
+              <ArrowLeftIcon className="h-6 w-6" />
+            </Button>
+          </div>
+          <div className="mb-8">
+            <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {employeeCards.length > 0 ? employeeCards : (
+              <p>No employees with completed visits in this date range.</p>
+            )}
+          </div>
+        </>
+      ) : selectedEmployee && employeeDetails ? (
+        <>
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold capitalize">{selectedEmployee}</h1>
+            <Button variant="ghost" size="lg" onClick={() => setSelectedEmployee(null)}>
+              <ArrowLeftIcon className="h-6 w-6" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <KPICard title="Total Completed Visits" value={employeeDetails.statsDto ? employeeDetails.statsDto.completedVisitCount : 0} />
+            <KPICard title="Full Days" value={employeeDetails.statsDto ? employeeDetails.statsDto.fullDays : 0} />
+            <KPICard title="Half Days" value={employeeDetails.statsDto ? employeeDetails.statsDto.halfDays : 0} />
+            <KPICard title="Absences" value={employeeDetails.statsDto ? employeeDetails.statsDto.absences : 0} />
+          </div>
+          <div className="mb-8">
+            <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <ClipLoader color="#4A90E2" size={50} />
+            </div>
+          ) : (
+            <>
+              <VisitsTable
+                visits={employeeDetails.visitDto || []}
+                onViewDetails={handleViewDetails}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+              />
+              <div className="mt-8">
+                <VisitsByPurposeChart data={visitsByPurposeChartData} />
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold">Sales Dashboard</h1>
+            <div className="flex">
+              <DateRangeDropdown selectedOption={selectedOption} onDateRangeChange={handleDateRangeChange} />
+            </div>
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <ClipLoader color="#4A90E2" size={50} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {stateCards.length > 0 ? stateCards : (
+                <p>No states with active employees in this date range.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

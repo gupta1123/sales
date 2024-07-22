@@ -1,5 +1,5 @@
 // pages/Attendance.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import AttendanceCard from './AttendanceCard';
@@ -41,12 +41,7 @@ const Attendance: React.FC = () => {
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-    useEffect(() => {
-        fetchAttendanceData();
-        fetchEmployees();
-    }, [selectedYear, selectedMonth, token]);
-
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         if (!token) {
             console.error("Auth token is missing");
             return;
@@ -68,9 +63,9 @@ const Attendance: React.FC = () => {
         } catch (error) {
             console.error("Error fetching employees:", error);
         }
-    };
+    }, [token]);
 
-    const fetchAttendanceData = async () => {
+    const fetchAttendanceData = useCallback(async () => {
         setIsLoading(true);
 
         if (!token) {
@@ -115,7 +110,12 @@ const Attendance: React.FC = () => {
         }
 
         setIsLoading(false);
-    };
+    }, [token, selectedYear, selectedMonth]);
+
+    useEffect(() => {
+        fetchAttendanceData();
+        fetchEmployees();
+    }, [selectedYear, selectedMonth, token, fetchAttendanceData, fetchEmployees]);
 
     const filteredEmployees = employees
         .filter((employee) =>

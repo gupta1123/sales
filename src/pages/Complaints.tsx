@@ -1,7 +1,7 @@
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { CalendarIcon, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -95,16 +95,9 @@ const Complaints = () => {
     const role = useSelector((state: RootState) => state.auth.role);
     const teamId = useSelector((state: RootState) => state.auth.teamId);
 
-    useEffect(() => {
-        fetchTasks();
-    }, [token, currentPage, filters]);
+   
 
-    useEffect(() => {
-        if (isModalOpen) {
-            fetchEmployees();
-            fetchStores();
-        }
-    }, [isModalOpen, token]);
+  
 
     useEffect(() => {
         if (errorMessage) {
@@ -148,7 +141,7 @@ const Complaints = () => {
         router.push(`/SalesExecutive/${employeeId}`);
     };
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
             const url = role === 'MANAGER' ?
@@ -177,9 +170,9 @@ const Complaints = () => {
             console.error('Error fetching tasks:', error);
             setIsLoading(false);
         }
-    };
+    }, [role, filters, teamId, token]);
 
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: {
@@ -191,9 +184,9 @@ const Complaints = () => {
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
-    };
+    }, [token]);
 
-    const fetchStores = async () => {
+    const fetchStores = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/names', {
                 headers: {
@@ -205,7 +198,20 @@ const Complaints = () => {
         } catch (error) {
             console.error('Error fetching stores:', error);
         }
-    };
+    }, [token]);
+
+    useEffect(() => {
+        fetchTasks();
+    }, [token, currentPage, filters, fetchTasks]);
+
+    useEffect(() => {
+        if (isModalOpen) {
+            fetchEmployees();
+            fetchStores();
+        }
+    }, [isModalOpen, token, fetchEmployees, fetchStores]);
+
+
 
     const createTask = async () => {
         try {

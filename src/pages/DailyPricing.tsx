@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import {
@@ -25,8 +25,8 @@ import {
     PaginationLink,
     PaginationPrevious,
     PaginationNext,
-    PaginationEllipsis,
 } from '@/components/ui/pagination';
+import { CurrencyRupeeIcon } from '@heroicons/react/24/solid'; // Replace with a relevant icon
 
 dayjs.extend(isBetween);
 
@@ -49,7 +49,7 @@ interface Brand {
 interface Employee {
     id: number;
     firstName: string;
-    lastName: string;
+    lastName: string; // This line needs to be added/modified to include the type for lastName
 }
 
 const DailyPricingPage = () => {
@@ -66,30 +66,33 @@ const DailyPricingPage = () => {
     const [newBrand, setNewBrand] = useState<Partial<Brand>>({});
     const [noDataMessage, setNoDataMessage] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [todayGajkesariPrice, setTodayGajkesariPrice] = useState<number | null>(null);
     const rowsPerPage = 10;
     const token = useSelector((state: RootState) => state.auth.token);
     const role = useSelector((state: RootState) => state.auth.role);
     const teamId = useSelector((state: RootState) => state.auth.teamId);
 
-    useEffect(() => {
-        fetchBrandDataForToday();
-        fetchEmployees();
-    }, []);
+ 
 
-    useEffect(() => {
-        filterAndSortBrandData();
-    }, [searchText, selectedEmployee, selectedStartDate, selectedEndDate, brandData, currentPage]);
 
-    const formatDate = (dateString: string) => {
-        const date = dayjs(dateString);
-        return date.format('YYYY-MM-DD');
-    };
+    const fetchTodayGajkesariPrice = useCallback(async () => {
+        try {
+            const today = dayjs().format('YYYY-MM-DD');
+            const url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/brand/getByDateRange?start=${today}&end=${today}`;
+            const response = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            const gajkesariPrice = data.find((brand: Brand) => brand.brandName === 'Gajkesari')?.price || null;
+            setTodayGajkesariPrice(gajkesariPrice);
+        } catch (error) {
+            console.error('Error fetching Gajkesari price:', error);
+        }
+    }, [token]);
 
-    const fetchBrandDataForToday = async () => {
-        fetchBrandData(selectedStartDate, selectedEndDate);
-    };
-
-    const fetchBrandData = async (start: string, end: string) => {
+    const fetchBrandData = useCallback(async (start: string, end: string) => {
         try {
             let url = '';
             if (role === 'MANAGER' && teamId) {
@@ -113,9 +116,11 @@ const DailyPricingPage = () => {
         } catch (error) {
             console.error('Error fetching brand data:', error);
         }
-    };
-
-    const fetchEmployees = async () => {
+    }, [role, teamId, token]);
+    const fetchBrandDataForToday = useCallback(() => {
+        fetchBrandData(selectedStartDate, selectedEndDate);
+    }, [selectedStartDate, selectedEndDate, fetchBrandData]);
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: {
@@ -127,9 +132,9 @@ const DailyPricingPage = () => {
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
-    };
+    }, [token]);
 
-    const filterAndSortBrandData = () => {
+    const filterAndSortBrandData = useCallback(() => {
         let filtered = brandData;
 
         if (searchText) {
@@ -153,6 +158,21 @@ const DailyPricingPage = () => {
         filtered.sort((a, b) => dayjs(b.createdAt).unix() - dayjs(a.createdAt).unix());
 
         setFilteredBrandData(filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage));
+    }, [brandData, searchText, selectedEmployee, selectedStartDate, selectedEndDate, currentPage]);
+
+    useEffect(() => {
+        fetchBrandDataForToday();
+        fetchEmployees();
+        fetchTodayGajkesariPrice();
+    }, [fetchBrandDataForToday, fetchEmployees, fetchTodayGajkesariPrice]);
+
+    useEffect(() => {
+        filterAndSortBrandData();
+    }, [searchText, selectedEmployee, selectedStartDate, selectedEndDate, brandData, currentPage, filterAndSortBrandData]);
+
+    const formatDate = (dateString: string) => {
+        const date = dayjs(dateString);
+        return date.format('YYYY-MM-DD');
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,21 +232,33 @@ const DailyPricingPage = () => {
 
     return (
         <div className="container mx-auto py-8">
-            <Card>
+            <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="text-3xl font-bold">Daily Pricing</CardTitle>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="text-3xl font-bold text-gray-800">Daily Pricing</CardTitle>
+                        {todayGajkesariPrice !== null && (
+                            <div className="bg-black p-3 rounded-lg shadow-md flex items-center space-x-3">
+                                <CurrencyRupeeIcon className="h-6 w-6 text-white" />
+                                <div className="text-white text-lg font-semibold">
+                                    Today&apos;s Gajkesari Price: ₹{todayGajkesariPrice.toLocaleString()}
+                                </div>
+
+                            </div>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                            <Input
-                                type="text"
-                                placeholder="Search by Brand Name"
-                                value={searchText}
-                                onChange={handleSearchChange}
-                            />
+                    <div className="flex flex-col lg:flex-row items-center justify-between mb-6 space-y-4 lg:space-y-0 lg:space-x-4">
+                        <Input
+                            type="text"
+                            placeholder="Search by Brand Name"
+                            value={searchText}
+                            onChange={handleSearchChange}
+                            className="flex-1 border-gray-300 rounded-lg shadow-sm"
+                        />
+                        <div className="w-[180px]">
                             <Select onValueChange={handleEmployeeChange}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full border-gray-300 rounded-lg shadow-sm">
                                     <SelectValue placeholder="Filter by Employee" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -238,55 +270,57 @@ const DailyPricingPage = () => {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <div className="relative">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsStartDatePickerOpen(!isStartDatePickerOpen)}
-                                >
-                                    Start Date: {selectedStartDate || 'Select'}
-                                </Button>
-                                {isStartDatePickerOpen && (
-                                    <Card className="absolute z-10">
-                                        <Calendar
-                                            mode="single"
-                                            selected={selectedStartDate ? new Date(selectedStartDate) : undefined}
-                                            onSelect={handleStartDateChange}
-                                        />
-                                    </Card>
-                                )}
-                            </div>
-                            <div className="relative ml-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsEndDatePickerOpen(!isEndDatePickerOpen)}
-                                >
-                                    End Date: {selectedEndDate || 'Select'}
-                                </Button>
-                                {isEndDatePickerOpen && (
-                                    <Card className="absolute z-10">
-                                        <Calendar
-                                            mode="single"
-                                            selected={selectedEndDate ? new Date(selectedEndDate) : undefined}
-                                            onSelect={handleEndDateChange}
-                                        />
-                                    </Card>
-                                )}
-                            </div>
+                        </div>
+                        <div className="relative">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsStartDatePickerOpen(!isStartDatePickerOpen)}
+                                className="flex-1 border-gray-300 rounded-lg shadow-sm"
+                            >
+                                Start Date: {selectedStartDate || 'Select'}
+                            </Button>
+                            {isStartDatePickerOpen && (
+                                <Card className="absolute z-10 mt-2">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedStartDate ? new Date(selectedStartDate) : undefined}
+                                        onSelect={handleStartDateChange}
+                                    />
+                                </Card>
+                            )}
+                        </div>
+                        <div className="relative">
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsEndDatePickerOpen(!isEndDatePickerOpen)}
+                                className="flex-1 border-gray-300 rounded-lg shadow-sm"
+                            >
+                                End Date: {selectedEndDate || 'Select'}
+                            </Button>
+                            {isEndDatePickerOpen && (
+                                <Card className="absolute z-10 mt-2">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedEndDate ? new Date(selectedEndDate) : undefined}
+                                        onSelect={handleEndDateChange}
+                                    />
+                                </Card>
+                            )}
                         </div>
                         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                             <DialogTrigger asChild>
-                                <Button>Create Pricing</Button>
+                                <Button className="flex-1 lg:flex-none bg-black text-white rounded-lg shadow-sm">Create Pricing</Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px] p-6">
+                            <DialogContent className="sm:max-w-[425px] p-6 bg-white rounded-lg shadow-md">
                                 <DialogHeader>
-                                    <DialogTitle className="text-2xl font-bold">Create Pricing</DialogTitle>
-                                    <DialogDescription className="mt-2">
+                                    <DialogTitle className="text-2xl font-bold text-gray-800">Create Pricing</DialogTitle>
+                                    <DialogDescription className="mt-2 text-gray-600">
                                         Enter the details to create a new pricing entry.
                                     </DialogDescription>
                                 </DialogHeader>
                                 <div className="grid gap-4 py-4">
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="brandName" className="text-right">
+                                        <Label htmlFor="brandName" className="text-right text-gray-600">
                                             Brand Name
                                         </Label>
                                         <Input
@@ -295,11 +329,11 @@ const DailyPricingPage = () => {
                                             onChange={(e) =>
                                                 setNewBrand({ ...newBrand, brandName: e.target.value })
                                             }
-                                            className="col-span-3"
+                                            className="col-span-3 border-gray-300 rounded-lg shadow-sm"
                                         />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="price" className="text-right">
+                                        <Label htmlFor="price" className="text-right text-gray-600">
                                             Price
                                         </Label>
                                         <Input
@@ -309,11 +343,11 @@ const DailyPricingPage = () => {
                                             onChange={(e) =>
                                                 setNewBrand({ ...newBrand, price: Number(e.target.value) })
                                             }
-                                            className="col-span-3"
+                                            className="col-span-3 border-gray-300 rounded-lg shadow-sm"
                                         />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="employee" className="text-right">
+                                        <Label htmlFor="employee" className="text-right text-gray-600">
                                             Employee Name
                                         </Label>
                                         <div className="col-span-3">
@@ -332,7 +366,7 @@ const DailyPricingPage = () => {
                                                     }
                                                 }}
                                             >
-                                                <SelectTrigger className="w-full">
+                                                <SelectTrigger className="w-full border-gray-300 rounded-lg shadow-sm">
                                                     <SelectValue placeholder="Select Employee" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -346,7 +380,7 @@ const DailyPricingPage = () => {
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="city" className="text-right">
+                                        <Label htmlFor="city" className="text-right text-gray-600">
                                             City
                                         </Label>
                                         <Input
@@ -355,11 +389,11 @@ const DailyPricingPage = () => {
                                             onChange={(e) =>
                                                 setNewBrand({ ...newBrand, city: e.target.value })
                                             }
-                                            className="col-span-3"
+                                            className="col-span-3 border-gray-300 rounded-lg shadow-sm"
                                         />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="state" className="text-right">
+                                        <Label htmlFor="state" className="text-right text-gray-600">
                                             State
                                         </Label>
                                         <Input
@@ -368,11 +402,11 @@ const DailyPricingPage = () => {
                                             onChange={(e) =>
                                                 setNewBrand({ ...newBrand, state: e.target.value })
                                             }
-                                            className="col-span-3"
+                                            className="col-span-3 border-gray-300 rounded-lg shadow-sm"
                                         />
                                     </div>
                                     <div className="grid grid-cols-4 items-center gap-4">
-                                        <Label htmlFor="metric" className="text-right">
+                                        <Label htmlFor="metric" className="text-right text-gray-600">
                                             Metric
                                         </Label>
                                         <Input
@@ -381,12 +415,12 @@ const DailyPricingPage = () => {
                                             onChange={(e) =>
                                                 setNewBrand({ ...newBrand, metric: e.target.value })
                                             }
-                                            className="col-span-3"
+                                            className="col-span-3 border-gray-300 rounded-lg shadow-sm"
                                         />
                                     </div>
                                 </div>
                                 <DialogFooter>
-                                    <Button type="submit" onClick={handleCreateBrand}>
+                                    <Button type="submit" onClick={handleCreateBrand} className="bg-black text-white rounded-lg shadow-sm">
                                         Create
                                     </Button>
                                 </DialogFooter>
@@ -398,9 +432,9 @@ const DailyPricingPage = () => {
                             {noDataMessage}
                         </div>
                     )}
-                    <Table>
+                    <Table className="bg-white rounded-lg shadow-sm">
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="bg-gray-50">
                                 <TableHead>Brand Name</TableHead>
                                 <TableHead>Price</TableHead>
                                 <TableHead>City</TableHead>
@@ -410,7 +444,7 @@ const DailyPricingPage = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredBrandData.map((brand) => (
-                                <TableRow key={brand.id}>
+                                <TableRow key={brand.id} className="hover:bg-gray-100">
                                     <TableCell>{brand.brandName}</TableCell>
                                     <TableCell>{brand.price}</TableCell>
                                     <TableCell>{brand.city}</TableCell>

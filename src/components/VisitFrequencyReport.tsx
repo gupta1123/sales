@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useCallback } from 'react';
+
 import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,19 +48,12 @@ const VisitFrequencyReport = () => {
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-    useEffect(() => {
-        if (token) {
-            fetchEmployees();
-        }
-    }, [token]);
+   
 
-    useEffect(() => {
-        if (selectedEmployee) {
-            fetchStoreStats();
-        }
-    }, [selectedEmployee, startDate, endDate]);
+ 
 
-    const fetchEmployees = async () => {
+
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -71,9 +66,14 @@ const VisitFrequencyReport = () => {
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
-    };
+    }, [token]);
+    useEffect(() => {
+        if (token) {
+            fetchEmployees();
+        }
+    }, [token, fetchEmployees]);
 
-    const fetchStoreStats = async () => {
+    const fetchStoreStats = useCallback(async () => {
         try {
             const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
                 params: {
@@ -87,7 +87,12 @@ const VisitFrequencyReport = () => {
         } catch (error) {
             console.error('Error fetching store stats:', error);
         }
-    };
+    }, [selectedEmployee, startDate, endDate, token]);
+    useEffect(() => {
+        if (selectedEmployee) {
+            fetchStoreStats();
+        }
+    }, [selectedEmployee, startDate, endDate, fetchStoreStats]);
 
     const handleEmployeeSelect = (selected: { value: number, label: string } | null) => {
         setSelectedEmployee(selected);

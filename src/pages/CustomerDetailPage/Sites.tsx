@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Button, Modal, Input, Select, message, Form, DatePicker } from 'antd';
 import { MapPin, Users, Calendar } from 'lucide-react';
@@ -41,11 +41,6 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
     const [showAll, setShowAll] = useState(false);
     const pageSize = 4;
 
-    useEffect(() => {
-        if (storeId) {
-            fetchSites();
-        }
-    }, [storeId]);
     const handlePrevious = () => {
         if (currentPage > 1) {
             setCurrentPage(prev => prev - 1);
@@ -57,7 +52,7 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
             setCurrentPage(prev => prev + 1);
         }
     };
-    const fetchSites = async () => {
+    const fetchSites = useCallback(async () => {
         try {
             const response = await axios.get<Site[]>(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/site/getByStore?id=${storeId}`, {
                 headers: {
@@ -68,7 +63,13 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
         } catch (error) {
             console.error('Error fetching sites:', error);
         }
-    };
+    }, [storeId, token]);
+
+    useEffect(() => {
+        if (storeId) {
+            fetchSites();
+        }
+    }, [storeId, fetchSites]);
 
     const handleAddSite = () => {
         setIsEditMode(false);

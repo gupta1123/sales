@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useCallback } from 'react';
+
 import { useSelector } from 'react-redux';
 import Select from 'react-select';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import axios from 'axios';
 import { RootState } from '../store';
-import {
-    Chart as ChartJS,
-    ArcElement,
-    Tooltip,
-    Legend
-} from 'chart.js';
-import { Pie } from 'react-chartjs-2';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip, Sector } from 'recharts';
 
 type Employee = {
     id: number;
@@ -21,49 +17,60 @@ type Employee = {
     lastName: string;
 };
 
+type CustomerTypeData = {
+    name: string;
+    value: number;
+};
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+const RADIAN = Math.PI / 180;
+
 const CustomerTypeAnalysisReport = () => {
     const [employees, setEmployees] = useState<{ value: number; label: string }[]>([]);
     const [selectedEmployee, setSelectedEmployee] = useState<{ value: number; label: string } | null>(null);
-    const [customerTypeData, setCustomerTypeData] = useState<{ [key: string]: number } | null>(null);
+    const [customerTypeData, setCustomerTypeData] = useState<CustomerTypeData[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [startDate, setStartDate] = useState('2024-05-01');
     const [endDate, setEndDate] = useState('2024-06-25');
+    const [isLoading, setIsLoading] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(0);
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-    useEffect(() => {
-        if (token) {
-            fetchEmployees();
-        }
-    }, [token]);
 
-    useEffect(() => {
-        if (selectedEmployee) {
-            fetchCustomerTypeData();
-        }
-    }, [selectedEmployee, startDate, endDate]);
 
-    const fetchEmployees = async () => {
+
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const employeeOptions = response.data.map((emp: Employee) => ({
-                value: emp.id,
-                label: `${emp.firstName} ${emp.lastName}`
-            }));
+            const employeeOptions = response.data
+                .map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName}`
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
             setEmployees(employeeOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
             setError('Failed to fetch employees');
         }
-    };
+    }, [token]);
+    useEffect(() => {
+        if (token) {
+            fetchEmployees();
+        }
+    }, [token, fetchEmployees]);
 
-    const fetchCustomerTypeData = async () => {
+ 
+    const fetchCustomerTypeData = useCallback(async () => {
         if (!selectedEmployee) return;
+        setIsLoading(true);
+        setError(null);
 
         try {
-            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getByStoreType', {
+            const response = await axios.get<Record<string, number>>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getByStoreType', {
                 params: {
                     employeeId: selectedEmployee.value,
                     startDate,
@@ -71,16 +78,28 @@ const CustomerTypeAnalysisReport = () => {
                 },
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setCustomerTypeData(response.data);
-            setError(null);
+            const total = Object.values(response.data).reduce((sum, value) => sum + value, 0);
+            const formattedData: CustomerTypeData[] = Object.entries(response.data).map(([name, value]) => ({
+                name,
+                value: (value / total) * 100
+            }));
+
+            setCustomerTypeData(formattedData);
         } catch (error) {
             console.error('Error fetching customer type data:', error);
             setError('Failed to fetch customer type data');
-            setCustomerTypeData(null);
+            setCustomerTypeData([]);
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, [selectedEmployee, startDate, endDate, token]);
 
-    const handleEmployeeSelect = (selected: any) => {
+    useEffect(() => {
+        if (selectedEmployee) {
+            fetchCustomerTypeData();
+        }
+    }, [selectedEmployee, startDate, endDate, fetchCustomerTypeData]);
+    const handleEmployeeSelect = (selected: { value: number; label: string } | null) => {
         setSelectedEmployee(selected);
     };
 
@@ -93,121 +112,162 @@ const CustomerTypeAnalysisReport = () => {
         }
     };
 
-    const processChartData = () => {
-        if (!customerTypeData || typeof customerTypeData !== 'object') {
-            return { labels: [], datasets: [{ data: [] }] };
-        }
+    const renderActiveShape = (props: any) => {
+        const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+        const sin = Math.sin(-RADIAN * midAngle);
+        const cos = Math.cos(-RADIAN * midAngle);
+        const sx = cx + (outerRadius + 10) * cos;
+        const sy = cy + (outerRadius + 10) * sin;
+        const mx = cx + (outerRadius + 30) * cos;
+        const my = cy + (outerRadius + 30) * sin;
+        const ex = mx + (cos >= 0 ? 1 : -1) * 22;
+        const ey = my;
+        const textAnchor = cos >= 0 ? 'start' : 'end';
 
-        const labels = Object.keys(customerTypeData);
-        const data = Object.values(customerTypeData);
-
-        return {
-            labels,
-            datasets: [
-                {
-                    data,
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.6)',
-                        'rgba(54, 162, 235, 0.6)',
-                        'rgba(255, 206, 86, 0.6)',
-                        'rgba(75, 192, 192, 0.6)',
-                        'rgba(153, 102, 255, 0.6)',
-                        'rgba(255, 159, 64, 0.6)',
-                        'rgba(199, 199, 199, 0.6)',
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)',
-                        'rgba(255, 159, 64, 1)',
-                        'rgba(199, 199, 199, 1)',
-                    ],
-                    borderWidth: 1,
-                },
-            ],
-        };
+        return (
+            <g>
+                <text x={cx} y={cy} dy={8} textAnchor="middle" fill={fill}>
+                    {payload.name}
+                </text>
+                <Sector
+                    cx={cx}
+                    cy={cy}
+                    innerRadius={innerRadius}
+                    outerRadius={outerRadius}
+                    startAngle={startAngle}
+                    endAngle={endAngle}
+                    fill={fill}
+                />
+                <Sector
+                    cx={cx}
+                    cy={cy}
+                    startAngle={startAngle}
+                    endAngle={endAngle}
+                    innerRadius={outerRadius + 6}
+                    outerRadius={outerRadius + 10}
+                    fill={fill}
+                />
+                <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
+                <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
+                <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} textAnchor={textAnchor} fill="#333">{`${payload.name}`}</text>
+                <text x={ex + (cos >= 0 ? 1 : -1) * 12} y={ey} dy={18} textAnchor={textAnchor} fill="#999">
+                    {`${(percent * 100).toFixed(2)}%`}
+                </text>
+            </g>
+        );
     };
 
-    const chartOptions = {
-        responsive: true,
-        plugins: {
-            legend: {
-                position: 'right' as const,
-            },
-            title: {
-                display: true,
-                text: 'Customer Type Distribution',
-            },
-            tooltip: {
-                callbacks: {
-                    label: function (context: any) {
-                        const label = context.label || '';
-                        const value = context.raw || 0;
-                        const total = context.dataset.data.reduce((acc: number, curr: number) => acc + curr, 0);
-                        const percentage = ((value / total) * 100).toFixed(2);
-                        return `${label}: ${value} (${percentage}%)`;
-                    }
-                }
-            }
-        },
+    const onPieEnter = (_: any, index: number) => {
+        setActiveIndex(index);
+    };
+
+    const CustomizedLegend = ({ payload }: { payload: any[] }) => (
+        <ul className="list-none pl-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">
+            {payload.map((entry, index) => (
+                <li key={`item-${index}`} className="flex items-center">
+                    <div className="w-3 h-3 mr-2" style={{ backgroundColor: entry.color }} />
+                    <span>{entry.value}: {entry.payload.value.toFixed(1)}%</span>
+                </li>
+            ))}
+        </ul>
+    );
+
+    const renderChart = () => {
+        if (isLoading) {
+            return (
+                <div className="w-full h-[500px] flex items-center justify-center">
+                    <Skeleton className="w-[400px] h-[400px] rounded-full" />
+                </div>
+            );
+        }
+
+        if (customerTypeData.length === 0) {
+            return <p className="text-center text-gray-500">No data available</p>;
+        }
+
+        return (
+            <div className="w-full h-[500px]"> {/* Increased height */}
+                <ResponsiveContainer>
+                    <PieChart>
+                        <Pie
+                            activeIndex={activeIndex}
+                            activeShape={renderActiveShape}
+                            data={customerTypeData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={80}  // Increased inner radius
+                            outerRadius={160} // Increased outer radius
+                            fill="#8884d8"
+                            dataKey="value"
+                            onMouseEnter={onPieEnter}
+                            label={false}  // Disable default labels
+                        >
+                            {customerTypeData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                        <Legend content={<CustomizedLegend payload={customerTypeData} />} verticalAlign="bottom" height={36} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        );
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-4xl mx-auto p-4">
             <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Employee</h3>
-                    <Select
-                        options={employees}
-                        value={selectedEmployee}
-                        onChange={handleEmployeeSelect}
-                        className="basic-single"
-                        classNamePrefix="select"
-                    />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Date Range</h3>
-                    <div className="flex space-x-4">
-                        <Input
-                            type="date"
-                            name="startDate"
-                            value={startDate}
-                            onChange={handleDateChange}
-                            className="w-1/2"
+                <CardHeader>
+                    <CardTitle>Customer Type Analysis Report</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <h3 className="text-lg font-semibold mb-2">Select Employee</h3>
+                        <Select
+                            options={employees}
+                            value={selectedEmployee}
+                            onChange={handleEmployeeSelect}
+                            className="basic-single"
+                            classNamePrefix="select"
+                            placeholder="Select an employee..."
                         />
-                        <Input
-                            type="date"
-                            name="endDate"
-                            value={endDate}
-                            onChange={handleDateChange}
-                            className="w-1/2"
-                        />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold mb-2">Select Date Range</h3>
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                            <Input
+                                type="date"
+                                name="startDate"
+                                value={startDate}
+                                onChange={handleDateChange}
+                                className="w-full sm:w-1/2"
+                            />
+                            <Input
+                                type="date"
+                                name="endDate"
+                                value={endDate}
+                                onChange={handleDateChange}
+                                className="w-full sm:w-1/2"
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
             {error && (
-                <Card>
-                    <CardContent>
-                        <p className="text-red-500">{error}</p>
-                    </CardContent>
-                </Card>
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
             )}
 
-            {selectedEmployee && customerTypeData && (
-                <Card>
-                    <CardContent>
-                        <div style={{ height: '400px' }}>
-                            <Pie data={processChartData()} options={chartOptions} />
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Client Type Distribution</CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-x-auto">
+                    {renderChart()}
+                </CardContent>
+            </Card>
         </div>
     );
 };

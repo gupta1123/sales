@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
@@ -33,19 +33,7 @@ const NewCustomersReport = () => {
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-    useEffect(() => {
-        if (token) {
-            fetchEmployees();
-        }
-    }, [token]);
-
-    useEffect(() => {
-        if (token && startDate && endDate) {
-            fetchReportData();
-        }
-    }, [token, startDate, endDate]);
-
-    const fetchEmployees = async () => {
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -58,9 +46,9 @@ const NewCustomersReport = () => {
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
-    };
+    }, [token]);
 
-    const fetchReportData = async () => {
+    const fetchReportData = useCallback(async () => {
         const start = parse(startDate, 'yyyy-MM-dd', new Date());
         const end = parse(endDate, 'yyyy-MM-dd', new Date());
         const months = eachMonthOfInterval({ start, end });
@@ -85,7 +73,22 @@ const NewCustomersReport = () => {
         const newReportData = Object.fromEntries(results.map(({ month, data }) => [month, data]));
         setReportData(newReportData);
         calculateTopAndBottomPerformers(newReportData);
-    };
+    }, [token, startDate, endDate]);
+
+    useEffect(() => {
+        if (token) {
+            fetchEmployees();
+        }
+    }, [token, fetchEmployees]);
+
+    useEffect(() => {
+        if (token && startDate && endDate) {
+            fetchReportData();
+        }
+    }, [token, startDate, endDate, fetchReportData]);
+
+
+  
 
     const calculateTopAndBottomPerformers = (data: Record<string, ReportData[]>) => {
         const aggregatedData = Object.values(data).flat().reduce((acc: Record<string, number>, curr) => {

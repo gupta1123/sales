@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../store";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,12 +39,8 @@ const AddTeam = () => {
     const token = useSelector((state: RootState) => state.auth.token);
     const { toast } = useToast();
 
-    useEffect(() => {
-        if (isModalOpen && token) {
-            fetchOfficeManagers();
-            fetchCities();
-        }
-    }, [isModalOpen, token]);
+   
+
 
     useEffect(() => {
         if (!isModalOpen) {
@@ -59,7 +55,7 @@ const AddTeam = () => {
         setEmployees([]);
     };
 
-    const fetchOfficeManagers = async () => {
+    const fetchOfficeManagers = useCallback(async () => {
         try {
             const allEmployeesResponse = await axios.get(
                 "http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll",
@@ -99,13 +95,13 @@ const AddTeam = () => {
                 variant: "destructive",
             });
         }
-    };
-
+    }, [token, toast]);
+   
     const handleOfficeManagerChange = (selectedOption: { value: number, label: string } | null) => {
         setOfficeManager(selectedOption);
     };
 
-    const fetchCities = async () => {
+    const fetchCities = useCallback(async () => {
         try {
             const response = await axios.get(
                 "http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getCities",
@@ -127,8 +123,15 @@ const AddTeam = () => {
                 variant: "destructive",
             });
         }
-    };
+    }, [token, toast]);
 
+
+    useEffect(() => {
+        if (isModalOpen && token) {
+            fetchOfficeManagers();
+            fetchCities();
+        }
+    }, [isModalOpen, token, fetchOfficeManagers, fetchCities]);
     const fetchEmployeesByCities = async (cities: string[]) => {
         try {
             const promises = cities.map(city =>
