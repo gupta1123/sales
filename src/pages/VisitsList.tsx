@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { useQuery, QueryClient, QueryClientProvider } from 'react-query';
@@ -7,7 +7,7 @@ import { RootState } from '../store';
 import VisitsTable from '../components/VisitList/VisitsTable';
 import VisitsFilter from '../components/VisitList/VisitsFilter';
 import { Visit } from '../components/VisitList/types';
-import { format, subDays, addDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { stringify } from 'csv-stringify';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pagination, PaginationContent, PaginationLink, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
@@ -144,13 +144,27 @@ const VisitsList: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-
   const [purpose, setPurpose] = useState<string>('');
   const [storeName, setStoreName] = useState<string>('');
   const [employeeName, setEmployeeName] = useState<string>(stateEmployeeName ? stateEmployeeName as string : '');
   const [visitsNavigate, setVisitsNavigate] = useState([]);
+  const [selectedColumns, setSelectedColumns] = useState([
+    'storeName',
+    'employeeName',
+    'visit_date',
+    'purpose',
+    'outcome',
+    'visitStart',
+    'visitEnd',
+    'intent',
+    'city',
+    'state',
+    'storePrimaryContact',
+    'district',
+    'subDistrict',
+  ]);
 
-  const saveStateToLocalStorage = () => {
+  const saveStateToLocalStorage = useCallback(() => {
     const state = {
       startDate,
       endDate,
@@ -163,7 +177,7 @@ const VisitsList: React.FC = () => {
       employeeName,
     };
     localStorage.setItem('visitsListState', JSON.stringify(state));
-  };
+  }, [startDate, endDate, sortColumn, sortDirection, itemsPerPage, currentPage, purpose, storeName, employeeName]);
 
   useEffect(() => {
     const selectedDate = localStorage.getItem('selectedDate');
@@ -180,7 +194,7 @@ const VisitsList: React.FC = () => {
     }
 
     if (selectedDate && storedEmployeeName) {
-      const encodedEmployeeName = encodeURIComponent(employeeName);
+      const encodedEmployeeName = encodeURIComponent(storedEmployeeName);
 
       const url = `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByDateSorted?startDate=${selectedDate}&endDate=${selectedDate}&page=0&size=10&sort=id,desc&employeeName=${encodedEmployeeName}`;
 
@@ -197,7 +211,7 @@ const VisitsList: React.FC = () => {
           console.error('Error fetching data:', error);
         });
     }
-  }, [employeeName]);
+  }, [token]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -225,8 +239,7 @@ const VisitsList: React.FC = () => {
     };
   }, [router.events]);
 
-
-  const loadStateFromLocalStorage = () => {
+  const loadStateFromLocalStorage = useCallback(() => {
     const state = localStorage.getItem('visitsListState');
     if (state) {
       const parsedState = JSON.parse(state);
@@ -240,48 +253,23 @@ const VisitsList: React.FC = () => {
       setStoreName(parsedState.storeName);
       setEmployeeName(parsedState.employeeName);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    // Clear dates from local storage if not explicitly set
     if (!localStorage.getItem('selectedDate')) {
       setStartDate(subDays(new Date(), 7));
       setEndDate(new Date());
     } else {
       loadStateFromLocalStorage();
     }
-  }, []);
+  }, [loadStateFromLocalStorage]);
 
   useEffect(() => {
     saveStateToLocalStorage();
-  }, [
-    startDate,
-    endDate,
-    sortColumn,
-    sortDirection,
-    itemsPerPage,
-    currentPage,
-    purpose,
-    storeName,
-    employeeName,
-  ]);
+  }, [saveStateToLocalStorage]);
 
   const { data, error, isLoading } = useQuery(
-    [
-      'visits',
-      token,
-      role,
-      teamId,
-      startDate,
-      endDate,
-      purpose,
-      storeName,
-      employeeName,
-      sortColumn,
-      sortDirection,
-      currentPage,
-      itemsPerPage
-    ],
+    ['visits', token, role, teamId, startDate, endDate, purpose, storeName, employeeName, sortColumn, sortDirection, currentPage, itemsPerPage],
     () => {
       if (role === 'MANAGER' && teamId) {
         return fetchVisitsForTeam(
@@ -320,40 +308,35 @@ const VisitsList: React.FC = () => {
   const visits = data?.content || [];
   const totalPages = data ? data.totalPages : 1;
 
-  const handleSort = (column: string) => {
+  const handleSort = useCallback((column: string) => {
     if (sortColumn === column) {
       setSortDirection((prevDirection) => (prevDirection === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
       setSortDirection('asc');
     }
-  };
+  }, [sortColumn]);
 
-  const handleFilter = (filters: { storeName: string; employeeName: string; purpose: string }, clearFilters: boolean) => {
+  const handleFilter = useCallback((filters: { storeName: string; employeeName: string; purpose: string }) => {
     setCurrentPage(1);
     setStoreName(filters.storeName);
     setEmployeeName(filters.employeeName);
     setPurpose(filters.purpose);
-    if (clearFilters) {
-      setStoreName('');
-      setEmployeeName('');
-      setPurpose('');
-    }
-  };
+  }, []);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
-  };
+  }, []);
 
-  const handleItemsPerPageChange = (value: string) => {
+  const handleItemsPerPageChange = useCallback((value: string) => {
     const newValue = parseInt(value, 10);
     if (!isNaN(newValue)) {
       setItemsPerPage(newValue);
       setCurrentPage(1);
     }
-  };
+  }, []);
 
-  const handleExport = (allVisits: Visit[]) => {
+  const handleExport = useCallback((allVisits: Visit[]) => {
     const headers = selectedColumns
       .filter(column => column !== 'outcome')
       .map((column) => {
@@ -422,33 +405,15 @@ const VisitsList: React.FC = () => {
       link.download = 'visits.csv';
       link.click();
     });
-  };
+  }, [selectedColumns]);
 
-  const handleColumnSelect = (column: string) => {
-    if (selectedColumns.includes(column)) {
-      setSelectedColumns(selectedColumns.filter((col) => col !== column));
-    } else {
-      setSelectedColumns([...selectedColumns, column]);
-    }
-  };
+  const handleColumnSelect = useCallback((column: string) => {
+    setSelectedColumns(prev =>
+      prev.includes(column) ? prev.filter((col) => col !== column) : [...prev, column]
+    );
+  }, []);
 
-  const [selectedColumns, setSelectedColumns] = useState([
-    'storeName',
-    'employeeName',
-    'visit_date',
-    'purpose',
-    'outcome',
-    'visitStart',
-    'visitEnd',
-    'intent',
-    'city',
-    'state',
-    'storePrimaryContact',
-    'district',
-    'subDistrict',
-  ]);
-
-  const formatDateTime = (date: string | null | undefined, time: string | null | undefined) => {
+  const formatDateTime = useCallback((date: string | null | undefined, time: string | null | undefined) => {
     if (date && time) {
       const [hours, minutes] = time.split(':');
       const formattedTime = format(
@@ -458,9 +423,9 @@ const VisitsList: React.FC = () => {
       return formattedTime;
     }
     return '';
-  };
+  }, []);
 
-  const fetchAndExportAllVisits = async () => {
+  const fetchAndExportAllVisits = useCallback(async () => {
     if (role === 'MANAGER' && !teamId) return;
     if (role === 'MANAGER') {
       const allVisits = await fetchAllVisitsForTeam(
@@ -487,7 +452,7 @@ const VisitsList: React.FC = () => {
       );
       handleExport(allVisits.content);
     }
-  };
+  }, [role, teamId, token, startDate, endDate, purpose, storeName, employeeName, sortColumn, sortDirection, handleExport]);
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -500,7 +465,6 @@ const VisitsList: React.FC = () => {
   const renderPagination = () => {
     const pageNumbers = [];
     const displayPages = 5;
-    const groupSize = 10;
 
     let startPage = Math.max(currentPage - Math.floor(displayPages / 2), 1);
     let endPage = startPage + displayPages - 1;

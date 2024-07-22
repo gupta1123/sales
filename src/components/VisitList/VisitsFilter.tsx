@@ -49,6 +49,7 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
     const role = useSelector((state: RootState) => state.auth.role);
     const [debouncedStoreName, setDebouncedStoreName] = useState(storeName);
     const [debouncedEmployeeName, setDebouncedEmployeeName] = useState(employeeName);
+    const [debouncedPurpose, setDebouncedPurpose] = useState(purpose);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
@@ -71,15 +72,23 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
         };
     }, [employeeName]);
 
-  
+    useEffect(() => {
+        const purposeDebounceTimer = setTimeout(() => {
+            setDebouncedPurpose(purpose);
+        }, 300);
+
+        return () => {
+            clearTimeout(purposeDebounceTimer);
+        };
+    }, [purpose]);
 
     const handleFilter = useCallback(() => {
-        onFilter({ storeName: debouncedStoreName, employeeName: debouncedEmployeeName, purpose }, false);
-    }, [debouncedStoreName, debouncedEmployeeName, purpose, onFilter]);
+        onFilter({ storeName: debouncedStoreName, employeeName: debouncedEmployeeName, purpose: debouncedPurpose }, false);
+    }, [debouncedStoreName, debouncedEmployeeName, debouncedPurpose, onFilter]);
 
     useEffect(() => {
         handleFilter();
-    }, [debouncedStoreName, debouncedEmployeeName, purpose, handleFilter]);
+    }, [debouncedStoreName, debouncedEmployeeName, debouncedPurpose, handleFilter]);
 
     const handleAllowClearStoreName = () => {
         setStoreName('');
@@ -95,6 +104,7 @@ const VisitsFilter: React.FC<VisitsFilterProps> = ({
 
     const handleAllowClearPurpose = () => {
         setPurpose('');
+        setDebouncedPurpose('');
         onFilter({ storeName, employeeName, purpose: '' }, true);
     };
 
