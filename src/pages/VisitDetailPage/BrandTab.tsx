@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,13 +36,7 @@ export default function BrandTab({ brands, setBrands, visitId, token, fetchVisit
     });
     const [editingBrandId, setEditingBrandId] = useState<number | null>(null);
 
-    useEffect(() => {
-        if (visitId) {
-            fetchBrands();
-        }
-    }, [visitId]);
-
-    const fetchBrands = async () => {
+    const fetchBrands = useCallback(async () => {
         try {
             const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getProCons?visitId=${visitId}`, {
                 headers: {
@@ -60,7 +54,13 @@ export default function BrandTab({ brands, setBrands, visitId, token, fetchVisit
         } catch (error) {
             console.error("Error fetching brands:", error);
         }
-    };
+    }, [token, visitId, setBrands]);
+
+    useEffect(() => {
+        if (visitId) {
+            fetchBrands();
+        }
+    }, [visitId, fetchBrands]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewBrand({ ...newBrand, [e.target.name]: e.target.value });

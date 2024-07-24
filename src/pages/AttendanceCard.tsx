@@ -3,7 +3,6 @@ import CustomCalendar from './CustomCalendar';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSun, faCloudSun, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 import styles from './AttendanceCard.module.css';
-import { useVisitList } from '../contexts/VisitListContext';
 
 interface AttendanceData {
     id: number;
@@ -30,6 +29,7 @@ interface AttendanceCardProps {
         halfDays: number;
         absentDays: number;
     };
+    onDateClick: (date: string, employeeName: string) => void;
 }
 
 const AttendanceCard: React.FC<AttendanceCardProps> = ({
@@ -37,9 +37,9 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
     attendanceData,
     selectedYear,
     selectedMonth,
-    initialSummary
+    initialSummary,
+    onDateClick
 }) => {
-    const { setFilters } = useVisitList();
     const [summary, setSummary] = useState(initialSummary);
 
     const handleSummaryChange = useCallback((newSummary: {
@@ -59,6 +59,10 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
         `${employee.firstName} ${employee.lastName}`,
         [employee.firstName, employee.lastName]
     );
+
+    const handleDateClick = useCallback((date: string) => {
+        onDateClick(date, employeeName);
+    }, [onDateClick, employeeName]);
 
     return (
         <div className={styles['info-card']}>
@@ -88,8 +92,10 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
                     year={selectedYear}
                     attendanceData={filteredAttendanceData}
                     onSummaryChange={handleSummaryChange}
-                    employeeName={employeeName}
+                    onDateClick={handleDateClick}
+                    employeeName={employeeName} // Add this line
                 />
+
             </div>
         </div>
     );

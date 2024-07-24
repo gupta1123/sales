@@ -1,3 +1,4 @@
+// components/EmployeeCard.tsx
 import React from 'react';
 import './employeeCard.css';
 import CustomCalendar from './CustomCalendar';
@@ -25,7 +26,7 @@ interface EmployeeCardProps {
         checkinDate: string;
         checkoutDate: string;
     }[];
-    onDateClick: (date: string) => void; 
+    onDateClick: (date: string) => void;
 }
 
 const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee, summary, month, year, attendanceData, onDateClick }) => {
@@ -69,6 +70,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee, summary, month, y
                         year={year}
                         attendanceData={attendanceData.filter(data => data.employeeId === employee.id)}
                         onSummaryChange={(summary) => { }} // Provide a no-op function or your actual summary handler
+                        onDateClick={onDateClick} // Pass the onDateClick prop
                         employeeName={`${employee.firstName} ${employee.lastName}`} // Pass the employeeName prop
                     />
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { format } from 'date-fns'
 import { CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -66,15 +66,7 @@ const TaskManagement = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [stores, setStores] = useState<string[]>([]);
 
-    useEffect(() => {
-        fetchTasks()
-    }, [token, currentPage, itemsPerPage, sortColumn, sortDirection, filters])
-
-    useEffect(() => {
-        if (isModalOpen || isEditModalOpen) {
-            fetchEmployees()
-        }
-    }, [isModalOpen, isEditModalOpen, token])
+  
 
     const handleNext = () => {
         setActiveTab('details');
@@ -84,7 +76,7 @@ const TaskManagement = () => {
         setActiveTab('general');
     };
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         setIsLoading(true)
         try {
             let response;
@@ -119,9 +111,10 @@ const TaskManagement = () => {
             console.error('Error fetching tasks:', error)
             setIsLoading(false)
         }
-    }
+    }, [token, role, teamId, employees]);
 
-    const fetchEmployees = async () => {
+
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: {
@@ -133,7 +126,8 @@ const TaskManagement = () => {
         } catch (error) {
             console.error('Error fetching employees:', error)
         }
-    }
+    }, [token]);
+
 
     const fetchStores = async () => {
         try {
@@ -149,6 +143,15 @@ const TaskManagement = () => {
             console.error('Error fetching stores:', error)
         }
     }
+    useEffect(() => {
+        fetchTasks()
+    }, [token, currentPage, itemsPerPage, sortColumn, sortDirection, filters, fetchTasks])
+
+    useEffect(() => {
+        if (isModalOpen || isEditModalOpen) {
+            fetchEmployees()
+        }
+    }, [isModalOpen, isEditModalOpen, token, fetchEmployees])
 
     const createTask = async () => {
         try {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Carousel } from 'react-responsive-carousel';
 import 'react-responsive-carousel/lib/styles/carousel.min.css';
+import Image from 'next/image';
 
 interface ImageGalleryProps {
     images: string[];
@@ -13,22 +14,24 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
             thumbWidth={80}
             renderThumbs={() =>
                 images.map((image, index) => (
-                    <div key={index}>
-                        <img
+                    <div key={index} style={{ position: 'relative', width: '80px', height: '60px' }}>
+                        <Image
                             src={image}
                             alt={`Thumbnail ${index + 1}`}
-                            style={{ objectFit: 'cover', height: '60px' }}
+                            layout="fill"
+                            objectFit="cover"
                         />
                     </div>
                 ))
             }
         >
             {images.map((image, index) => (
-                <div key={index}>
-                    <img
+                <div key={index} style={{ position: 'relative', width: '300px', height: '200px' }}>
+                    <Image
                         src={image}
                         alt={`Image ${index + 1}`}
-                        style={{ width: '300px', height: '200px', objectFit: 'cover' }}
+                        layout="fill"
+                        objectFit="cover"
                     />
                 </div>
             ))}

@@ -1,4 +1,3 @@
-// pages/Attendance.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
@@ -8,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { VisitListProvider } from '../contexts/VisitListContext';
+import VisitDetailsModal from './VisitDetailsModal';
 
 interface AttendanceData {
     id: number;
@@ -35,6 +35,10 @@ const Attendance: React.FC = () => {
     const [noDataMessage, setNoDataMessage] = useState<string>("");
     const [nameFilter, setNameFilter] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [visitData, setVisitData] = useState<any[]>([]);
+    const [selectedDate, setSelectedDate] = useState<string>('');
+    const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
 
     const years = Array.from({ length: 27 }, (_, index) => 2024 + index);
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -95,8 +99,6 @@ const Attendance: React.FC = () => {
                 return item;
             });
 
-            console.log(modifiedData);
-            console.log(data)
             setAttendanceData(modifiedData);
             setNoDataMessage("");
 
@@ -111,6 +113,42 @@ const Attendance: React.FC = () => {
 
         setIsLoading(false);
     }, [token, selectedYear, selectedMonth]);
+
+    const fetchVisitData = useCallback(async (date: string, employeeName: string) => {
+        if (!token) {
+            console.error("Auth token is missing");
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByDateSorted?startDate=${date}&endDate=${date}&employeeName=${employeeName}&page=0&size=100&sort=id,desc`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch visit data");
+            }
+
+            const data = await response.json();
+
+            // Filter the visits to only include those for the selected employee
+            const filteredVisits = data.content.filter((visit: any) => visit.employeeName === employeeName);
+
+            setVisitData(filteredVisits || []);
+            setSelectedDate(date);
+            setSelectedEmployeeName(employeeName);
+            setIsModalOpen(true);
+
+            if (filteredVisits.length === 0) {
+                setVisitData([]);
+            }
+        } catch (error) {
+            console.error("Error fetching visit data:", error);
+            setVisitData([]);
+        }
+    }, [token]);
 
     useEffect(() => {
         fetchAttendanceData();
@@ -207,12 +245,20 @@ const Attendance: React.FC = () => {
                                         selectedYear={selectedYear}
                                         selectedMonth={selectedMonth}
                                         attendanceData={attendanceData.filter(data => data.employeeId === employee.id)}
+                                        onDateClick={(date, employeeName) => fetchVisitData(date, employeeName)}
                                     />
                                 );
                             })}
                         </div>
                     )}
                 </div>
+                <VisitDetailsModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    visitData={visitData}
+                    selectedDate={selectedDate}
+                    employeeName={selectedEmployeeName}
+                />
             </div>
         </VisitListProvider>
     );

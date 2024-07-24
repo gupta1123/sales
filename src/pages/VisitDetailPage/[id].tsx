@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import Link from 'next/link';
+
 import { format, parseISO } from 'date-fns';
 import Image from 'next/image';
 import {
@@ -136,7 +137,7 @@ type Store = {
 
 const VisitDetailPage: React.FC = () => {
   const router = useRouter();
-  const { id } = router.query || {};
+
 
   const [visitDetail, setVisitDetail] = useState<VisitDetail | null>(null);
   const [activeTab, setActiveTab] = useState('metrics');
@@ -172,7 +173,7 @@ const VisitDetailPage: React.FC = () => {
   const [noteContent, setNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
 
-
+  const { id, returnTo, employeeId, startDate, endDate } = router.query;
   const [editingNoteDetails, setEditingNoteDetails] = useState<{ employeeId: number; storeId: number } | null>(null);
   const [requirementPriorityFilter, setRequirementPriorityFilter] = useState('All');
   const [complaintPriorityFilter, setComplaintPriorityFilter] = useState('All');
@@ -293,15 +294,14 @@ const VisitDetailPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    filterTasks();
-  }, [requirements, complaints, priorityFilter]);
+ 
+
 
   const handlePriorityChange = (value: string) => {
     setPriorityFilter(value);
   };
 
-  const fetchVisitDetail = async (visitId: string) => {
+  const fetchVisitDetail = useCallback(async (visitId: string) => {
     try {
       const response = await axios.get(
         `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getById?id=${visitId}`,
@@ -325,7 +325,8 @@ const VisitDetailPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching visit detail:', error);
     }
-  };
+  }, [token]);
+
 
   const fetchCheckinImages = async (visitId: string, attachments: any[]) => {
     try {
@@ -384,14 +385,8 @@ const VisitDetailPage: React.FC = () => {
     [token]
   );
 
-  useEffect(() => {
-    const visitId = getVisitId();
-    if (visitId && token) {
-      fetchVisitDetail(visitId);
-    }
-  }, [id, token]);
-
-  const filterTasks = () => {
+ 
+  const filterTasks = useCallback(() => {
     const filterByPriority = (tasks: Task[]) => {
       if (priorityFilter === 'all') return tasks;
       return tasks.filter(task => task.priority === priorityFilter);
@@ -399,7 +394,8 @@ const VisitDetailPage: React.FC = () => {
 
     setFilteredRequirements(filterByPriority(requirements));
     setFilteredComplaints(filterByPriority(complaints));
-  };
+  }, [priorityFilter, requirements, complaints]);
+
 
   const calculateVisitDuration = (checkIn: string, checkOut: string) => {
     const checkInDate = new Date(`1970-01-01T${checkIn}Z`);
@@ -633,7 +629,7 @@ const VisitDetailPage: React.FC = () => {
       message.error('Error saving Pro/Con.');
     }
   };
-
+ 
   const handleDeleteProCon = async (brandName: string) => {
     try {
       await axios.post(
@@ -667,8 +663,21 @@ const VisitDetailPage: React.FC = () => {
   };
 
   const handleBack = () => {
-    setActiveRequirementTab('general');
+    if (returnTo === 'employeeDetails') {
+      router.push({
+        pathname: '/Dashboard',
+        query: {
+          view: 'employeeDetails',
+          employeeId: employeeId,
+          startDate: startDate,
+          endDate: endDate
+        }
+      });
+    } else {
+      router.push('/Dashboard');
+    }
   };
+
 
   const createTask = async (taskType: string) => {
     try {
@@ -795,7 +804,16 @@ const VisitDetailPage: React.FC = () => {
       }
     }
   };
+  useEffect(() => {
+    const visitId = getVisitId();
+    if (visitId && token) {
+      fetchVisitDetail(visitId);
+    }
+  }, [id, token, fetchVisitDetail, getVisitId]); // Add fetchVisitDetail and getVisitId here
 
+  useEffect(() => {
+    filterTasks();
+  }, [requirements, complaints, priorityFilter, filterTasks]); // Add filterTasks here
   const handleDeleteTask = async (taskId: number) => {
     try {
       await axios.delete(
@@ -837,7 +855,6 @@ const VisitDetailPage: React.FC = () => {
         }
       );
 
-      // Update the local state with the new status
       setRequirements((prevRequirements) =>
         prevRequirements.map((req) =>
           req.id === taskId ? { ...req, status: newStatus } : req
@@ -916,9 +933,10 @@ const VisitDetailPage: React.FC = () => {
       <div className="visit-details">
         <aside className="left-panel">
           <div className="back-button-container">
-            <div className="back-button" onClick={() => router.push('/VisitsList')}>
-              <i className="fas fa-arrow-left"></i> Back to visits
+            <div className="back-button" onClick={handleBack}>
+              <i className="fas fa-arrow-left"></i> Back
             </div>
+
             <div className="status-badge-wrapper">
               <div className={`status-badge ${visitStatus.color}`}>
                 {getStatusIcon(visitStatus.status as 'Assigned' | 'On Going' | 'Checked Out' | 'Completed')}
@@ -1060,7 +1078,7 @@ const VisitDetailPage: React.FC = () => {
             >
               <i className="fas fa-calendar-check"></i> Visits
             </button>
-          
+
             <button
               className={`tab ${activeTab === 'brands' ? 'active' : ''}`}
               onClick={() => setActiveTab('brands')}
@@ -1289,6 +1307,7 @@ const VisitDetailPage: React.FC = () => {
             ) : (
               <p>No images available</p>
             )}
+
           </div>
           <div className="section-title">Notes</div>
           <div className="notes-section">

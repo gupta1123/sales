@@ -11,10 +11,11 @@ interface CustomCalendarProps {
         checkoutDate: string;
     }[];
     onSummaryChange: (summary: { fullDays: number; halfDays: number; absentDays: number }) => void;
+    onDateClick: (date: string, employeeName: string) => void;
     employeeName: string;
 }
 
-const CustomCalendar: React.FC<CustomCalendarProps> = ({ month, year, attendanceData, onSummaryChange, employeeName }) => {
+const CustomCalendar: React.FC<CustomCalendarProps> = ({ month, year, attendanceData, onSummaryChange, onDateClick, employeeName }) => {
     const datesRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -89,6 +90,10 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ month, year, attendance
                         }
                     });
 
+                    dateDiv.addEventListener('click', () => {
+                        onDateClick(dateKey, employeeName);
+                    });
+
                     datesRef.current?.appendChild(dateDiv);
                 }
 
@@ -97,7 +102,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ month, year, attendance
         };
 
         renderCalendar();
-    }, [month, year, attendanceData, onSummaryChange, employeeName]);
+    }, [month, year, attendanceData, onSummaryChange, employeeName, onDateClick]);
 
     return (
         <div className="custom-calendar">

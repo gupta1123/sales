@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, subDays, differenceInDays } from 'date-fns';
 import { CalendarIcon, MoreHorizontal } from 'lucide-react';
@@ -101,16 +101,7 @@ const Requirements = () => {
 
     const router = useRouter();
 
-    useEffect(() => {
-        fetchTasks();
-    }, [token, currentPage, sortColumn, sortDirection, filters]);
-
-    useEffect(() => {
-        if (isModalOpen) {
-            fetchEmployees();
-            fetchStores();
-        }
-    }, [isModalOpen, token]);
+  
 
     useEffect(() => {
         if (errorMessage) {
@@ -145,7 +136,7 @@ const Requirements = () => {
         setActiveTab('general');
     };
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
             const url = role === 'MANAGER' ?
@@ -173,9 +164,10 @@ const Requirements = () => {
             console.error('Error fetching tasks:', error);
             setIsLoading(false);
         }
-    };
+    }, [role, teamId, token, filters.startDate, filters.endDate]);
 
-    const fetchEmployees = async () => {
+
+    const fetchEmployees = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: {
@@ -187,9 +179,10 @@ const Requirements = () => {
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
-    };
+    }, [token]);
 
-    const fetchStores = async () => {
+
+    const fetchStores = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/names', {
                 headers: {
@@ -201,7 +194,18 @@ const Requirements = () => {
         } catch (error) {
             console.error('Error fetching stores:', error);
         }
-    };
+    }, [token]);
+    useEffect(() => {
+        fetchTasks();
+    }, [token, currentPage, sortColumn, sortDirection, filters, fetchTasks]);
+
+    useEffect(() => {
+        if (isModalOpen) {
+            fetchEmployees();
+            fetchStores();
+        }
+    }, [isModalOpen, token, fetchEmployees, fetchStores]);
+
 
     const createTask = async () => {
         try {

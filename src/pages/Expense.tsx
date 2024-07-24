@@ -1,5 +1,6 @@
 import * as React from "react";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { Card, CardTitle, CardHeader, CardContent } from '@/components/ui/card';
@@ -66,11 +67,9 @@ const ExpensePage = () => {
     const itemsPerPageCard = 5;
     const itemsPerPageTable = 10;
 
-    useEffect(() => {
-        fetchExpenseData();
-    }, [selectedEmployee, selectedYear, selectedMonth, selectedStatus, selectedFieldOfficer, selectedExpenseCategory, updateTrigger]);
 
-    const fetchExpenseData = async () => {
+
+    const fetchExpenseData = useCallback(async () => {
         try {
             let response;
             if (role === 'MANAGER' && teamId) {
@@ -105,7 +104,12 @@ const ExpensePage = () => {
         } catch (error) {
             console.error('Error fetching expense data:', error);
         }
-    };
+    }, [role, teamId, token, selectedYear, selectedMonth]);
+
+    useEffect(() => {
+        fetchExpenseData();
+    }, [selectedEmployee, selectedYear, selectedMonth, selectedStatus, selectedFieldOfficer, selectedExpenseCategory, updateTrigger, fetchExpenseData]);
+
 
     const handleApprove = async (employeeName: string, expenseId: string) => {
         try {

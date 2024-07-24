@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback} from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Script from 'next/script';
@@ -103,7 +103,7 @@ const CustomerDetailPage = () => {
   const getToken = (): string => {
     return token || '';
   };
-  const fetchIntentData = async (id: string) => {
+  const fetchIntentData = useCallback(async (id: string) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/intent-audit/getByStore?id=${id}`, {
         headers: {
@@ -114,9 +114,9 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching intent data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchSalesData = async (id: string) => {
+  const fetchSalesData = useCallback(async (id: string) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/monthly-sale/getByStore?storeId=${id}`, {
         headers: {
@@ -127,7 +127,7 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching sales data:', error);
     }
-  };
+  }, [token]);
 
   const handleCustomerEditSubmit = async (values: any) => {
     try {
@@ -149,7 +149,7 @@ const CustomerDetailPage = () => {
     }
   };
 
-  const fetchCustomerData = async (id: string) => {
+  const fetchCustomerData = useCallback(async (id: string) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/getById?id=${id}`, {
         headers: {
@@ -164,9 +164,10 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching customer data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchNotesData = async (id: string) => {
+
+  const fetchNotesData = useCallback(async (id: string) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/notes/getByStore?id=${id}`, {
         headers: {
@@ -177,9 +178,10 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching notes data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchVisitsData = async (id: string) => {
+
+  const fetchVisitsData = useCallback(async (id: string) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/visit/getByStore?id=${id}`, {
         headers: {
@@ -191,9 +193,9 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching visits data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchRequirementsData = async (id: string, start: Date, end: Date) => {
+  const fetchRequirementsData = useCallback(async (id: string, start: Date, end: Date) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByStoreAndDate?storeId=${id}&start=${start.toISOString().split('T')[0]}&end=${end.toISOString().split('T')[0]}`, {
         headers: {
@@ -204,9 +206,10 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching requirements data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchComplaintsData = async (id: string, start: Date, end: Date) => {
+
+  const fetchComplaintsData = useCallback(async (id: string, start: Date, end: Date) => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByStoreAndDate?storeId=${id}&start=${start.toISOString().split('T')[0]}&end=${end.toISOString().split('T')[0]}`, {
         headers: {
@@ -217,9 +220,10 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching complaints data:', error);
     }
-  };
+  }, [token]);
 
-  const fetchEmployees = async () => {
+
+  const fetchEmployees = useCallback(async () => {
     try {
       const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
         headers: {
@@ -230,9 +234,9 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
-  };
+  }, [token]);
 
-  const fetchStores = async () => {
+  const fetchStores = useCallback(async () => {
     try {
       const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/names', {
         headers: {
@@ -243,7 +247,8 @@ const CustomerDetailPage = () => {
     } catch (error) {
       console.error('Error fetching stores:', error);
     }
-  };
+  }, [token]);
+
   const getStoreId = (): string => {
     if (typeof storeId === 'string') {
       return storeId;

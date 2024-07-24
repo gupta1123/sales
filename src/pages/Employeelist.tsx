@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -114,25 +114,10 @@ const EmployeeList: React.FC = () => {
   const { toast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    if (token) {
-      fetchEmployees();
-    }
-  }, [token, role, employeeId]);
 
-  useEffect(() => {
-    if (token && role === 'MANAGER' && officeManagerId) {
-      fetchOfficeManager();
-    }
-  }, [token, role, officeManagerId]);
 
-  useEffect(() => {
-    if (isAssignCityModalOpen) {
-      fetchCities();
-    }
-  }, [isAssignCityModalOpen]);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -171,9 +156,10 @@ const EmployeeList: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token, role, employeeId]);
 
-  const fetchOfficeManager = async () => {
+
+  const fetchOfficeManager = useCallback(async () => {
     try {
       const response = await axios.get(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/get?id=${officeManagerId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -182,9 +168,10 @@ const EmployeeList: React.FC = () => {
     } catch (error) {
       console.error('Error fetching Office Manager:', error);
     }
-  };
+  }, [token, officeManagerId]);
 
-  const fetchCities = async () => {
+
+  const fetchCities = useCallback(async () => {
     try {
       const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getCities', {
         headers: { Authorization: `Bearer ${token}` },
@@ -193,8 +180,25 @@ const EmployeeList: React.FC = () => {
     } catch (error) {
       console.error('Error fetching cities:', error);
     }
-  };
+  }, [token]);
 
+  useEffect(() => {
+    if (token) {
+      fetchEmployees();
+    }
+  }, [token, role, employeeId, fetchEmployees]); // Add fetchEmployees to the dependency array
+
+  useEffect(() => {
+    if (token && role === 'MANAGER' && officeManagerId) {
+      fetchOfficeManager();
+    }
+  }, [token, role, officeManagerId, fetchOfficeManager]); // Add fetchOfficeManager to the dependency array
+
+  useEffect(() => {
+    if (isAssignCityModalOpen) {
+      fetchCities();
+    }
+  }, [isAssignCityModalOpen, fetchCities]); // Add fetchCities to the dependency array
   const handleResetPassword = (userId: number | string) => {
     setResetPasswordUserId(userId);
     setIsResetPasswordOpen(true);

@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
@@ -184,7 +184,6 @@ const SalesExecutivePage = () => {
     fetchVisitsAndStats();
   }, [token, id, visitFilter]);
 
-
   useEffect(() => {
     const fetchExpenses = async () => {
       if (token && id) {
@@ -250,11 +249,7 @@ const SalesExecutivePage = () => {
     fetchDailyPricing();
   }, [token, id, pricingStartDate, pricingEndDate]);
 
-  useEffect(() => {
-    loadPerformanceChart();
-  }, [stats]);
-
-  const loadPerformanceChart = () => {
+  const loadPerformanceChart = useCallback(() => {
     if (chartRef.current && stats) {
       const ctx = chartRef.current.getContext('2d');
 
@@ -293,7 +288,11 @@ const SalesExecutivePage = () => {
         chartInstance.current = new Chart(ctx, config);
       }
     }
-  };
+  }, [stats]);
+
+  useEffect(() => {
+    loadPerformanceChart();
+  }, [stats, loadPerformanceChart]);
 
   const calculateStats = () => {
     const totalVisits = visits.length;
@@ -330,9 +329,8 @@ const SalesExecutivePage = () => {
     <div className="mainContent">
       <Head>
         <title>Employee Detail Page</title>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
       </Head>
+
       <div className="employeeDetails">
         <aside className="leftPanel">
           <div className="backButton"><i className="fas fa-arrow-left"></i> Back to employees</div>
@@ -625,7 +623,7 @@ const SalesExecutivePage = () => {
                     </div>
                     <div className="pricingBody">
                       <div className="pricingPrice">₹{pricing.price.toFixed(2)}</div>
-                     
+
                     </div>
                   </CardContent>
                 </Card>
