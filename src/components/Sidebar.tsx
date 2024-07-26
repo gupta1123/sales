@@ -4,11 +4,10 @@ import { useRouter } from 'next/router';
 import styles from './Sidebar.module.css';
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser, resetState, AppDispatch, RootState } from '../store';
-import { FiLogOut, FiHome, FiUsers, FiMap, FiUser, FiClipboard, FiDollarSign, FiSettings, FiBarChart2 } from 'react-icons/fi';
+import { FiLogOut, FiHome, FiUsers, FiMap, FiUser, FiClipboard, FiDollarSign, FiSettings, FiBarChart2, FiMapPin } from 'react-icons/fi';
 
 const Sidebar: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-
   const router = useRouter();
   const role = useSelector((state: RootState) => state.auth.role);
 
@@ -41,6 +40,7 @@ const Sidebar: React.FC = () => {
     { href: '/Reports', icon: FiBarChart2, label: 'Reports', roles: ['ADMIN'] },
     { href: '/CustomerListPage', icon: FiUsers, label: 'Customers', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
     { href: '/Employeelist', icon: FiUser, label: 'Employee List', roles: ['ADMIN'] },
+    { href: '/EmployeeLocationTracking', icon: FiMapPin, label: 'Live Location', roles: ['ADMIN'] },
     { href: '/Settings', icon: FiSettings, label: 'Settings', roles: ['ADMIN'] },
   ];
 

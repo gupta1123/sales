@@ -15,6 +15,7 @@ type Employee = {
     id: number;
     firstName: string;
     lastName: string;
+    role: string; // Assuming role is part of the employee data
 };
 
 type ReportData = {
@@ -38,11 +39,13 @@ const NewCustomersReport = () => {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const employeeOptions = response.data.map((emp: Employee) => ({
-                value: emp.id,
-                label: `${emp.firstName} ${emp.lastName}`
-            }));
-            setEmployees(employeeOptions);
+            const fieldOfficerOptions = response.data
+                .filter((emp: Employee) => emp.role === 'Field Officer') // Filter only Field Officers
+                .map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName}`
+                }));
+            setEmployees(fieldOfficerOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
@@ -86,9 +89,6 @@ const NewCustomersReport = () => {
             fetchReportData();
         }
     }, [token, startDate, endDate, fetchReportData]);
-
-
-  
 
     const calculateTopAndBottomPerformers = (data: Record<string, ReportData[]>) => {
         const aggregatedData = Object.values(data).flat().reduce((acc: Record<string, number>, curr) => {

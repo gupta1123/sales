@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { useCallback } from 'react';
-
 import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,6 +34,7 @@ interface Employee {
     id: number;
     firstName: string;
     lastName: string;
+    role: string; // Assuming role is part of the employee data
 }
 
 const VisitFrequencyReport = () => {
@@ -48,25 +47,23 @@ const VisitFrequencyReport = () => {
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-   
-
- 
-
-
     const fetchEmployees = useCallback(async () => {
         try {
             const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const employeeOptions = response.data.map((emp: Employee) => ({
-                value: emp.id,
-                label: `${emp.firstName} ${emp.lastName}`
-            }));
+            const employeeOptions = response.data
+                .filter((emp: Employee) => emp.role === 'Field Officer') // Filter only Field Officers
+                .map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName}`
+                }));
             setEmployees(employeeOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
     }, [token]);
+
     useEffect(() => {
         if (token) {
             fetchEmployees();
@@ -88,6 +85,7 @@ const VisitFrequencyReport = () => {
             console.error('Error fetching store stats:', error);
         }
     }, [selectedEmployee, startDate, endDate, token]);
+
     useEffect(() => {
         if (selectedEmployee) {
             fetchStoreStats();
