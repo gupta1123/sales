@@ -151,6 +151,20 @@ const EmployeeLocationTracking: React.FC = () => {
         }
     };
 
+    const formatDateTime = (date: string, time: string) => {
+        const dateObj = new Date(`${date}T${time}`);
+        return dateObj.toLocaleString('en-US', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    };
+
     const updateMarker = (employeeLocation: EmployeeLocation) => {
         if (map.current) {
             if (marker.current) {
@@ -161,9 +175,16 @@ const EmployeeLocationTracking: React.FC = () => {
                 .setLngLat([employeeLocation.longitude, employeeLocation.latitude])
                 .addTo(map.current);
 
+            const formattedDateTime = formatDateTime(employeeLocation.updatedAt, employeeLocation.updatedTime);
+
             const popup = new Popup({ offset: 25 }).setHTML(
-                `<strong>${employeeLocation.empName}</strong><br>
-        Last updated: ${employeeLocation.updatedAt} ${employeeLocation.updatedTime}`
+                `<div style="font-family: Arial, sans-serif; padding: 10px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333;">${employeeLocation.empName}</h3>
+                    <p style="margin: 0; color: #666;">
+                        <strong>Last updated:</strong><br>
+                        ${formattedDateTime}
+                    </p>
+                </div>`
             );
 
             marker.current.setPopup(popup);

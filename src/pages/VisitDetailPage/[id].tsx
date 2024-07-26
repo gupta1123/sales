@@ -809,7 +809,8 @@ const VisitDetailPage: React.FC = () => {
     if (visitId && token) {
       fetchVisitDetail(visitId);
     }
-  }, [id, token, fetchVisitDetail, getVisitId]); // Add fetchVisitDetail and getVisitId here
+  }, [id, token]); 
+
 
   useEffect(() => {
     filterTasks();
