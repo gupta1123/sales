@@ -15,7 +15,10 @@ import {
     PointElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    BarController,
+    LineController,
+    ChartOptions
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
@@ -27,7 +30,9 @@ ChartJS.register(
     PointElement,
     Title,
     Tooltip,
-    Legend
+    Legend,
+    BarController,
+    LineController
 );
 
 interface Employee {
@@ -36,11 +41,21 @@ interface Employee {
     lastName: string;
 }
 
-const VisitFrequencyReport = () => {
-    const [employees, setEmployees] = useState<{ value: number, label: string }[]>([]);
-    const [selectedEmployee, setSelectedEmployee] = useState<{ value: number, label: string } | null>(null);
-    const [storeStats, setStoreStats] = useState<any[]>([]);
-    const [displayMode, setDisplayMode] = useState('mostVisited');
+interface StoreStats {
+    storeId: number;
+    storeName: string;
+    visitFrequency: number;
+    intentLogs: { newIntentLevel: number }[];
+    monthlySaleLogs: { newMonthlySale: number }[];
+    intentLevel?: number;
+    monthlySales?: number;
+}
+
+const VisitFrequencyReport: React.FC = () => {
+    const [employees, setEmployees] = useState<{ value: number; label: string }[]>([]);
+    const [selectedEmployee, setSelectedEmployee] = useState<{ value: number; label: string } | null>(null);
+    const [storeStats, setStoreStats] = useState<StoreStats[]>([]);
+    const [displayMode, setDisplayMode] = useState<'mostVisited' | 'leastVisited' | 'highestIntent' | 'lowestIntent' | 'highestSales' | 'lowestSales'>('mostVisited');
     const [startDate, setStartDate] = useState('2024-05-01');
     const [endDate, setEndDate] = useState('2024-06-30');
 
@@ -60,7 +75,7 @@ const VisitFrequencyReport = () => {
 
     const fetchEmployees = async () => {
         try {
-            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
+            const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const employeeOptions = response.data.map((emp: Employee) => ({
@@ -74,10 +89,11 @@ const VisitFrequencyReport = () => {
     };
 
     const fetchStoreStats = async () => {
+        if (!selectedEmployee) return;
         try {
-            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
+            const response = await axios.get<StoreStats[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
                 params: {
-                    employeeId: selectedEmployee?.value,
+                    employeeId: selectedEmployee.value,
                     startDate,
                     endDate
                 },
@@ -89,7 +105,7 @@ const VisitFrequencyReport = () => {
         }
     };
 
-    const handleEmployeeSelect = (selected: { value: number, label: string } | null) => {
+    const handleEmployeeSelect = (selected: { value: number; label: string } | null) => {
         setSelectedEmployee(selected);
     };
 
@@ -102,17 +118,17 @@ const VisitFrequencyReport = () => {
         }
     };
 
-    const getAverageIntentLevel = (store: any) => {
+    const getAverageIntentLevel = (store: StoreStats) => {
         if (store.intentLogs && store.intentLogs.length > 0) {
-            const sum = store.intentLogs.reduce((acc: number, log: any) => acc + log.newIntentLevel, 0);
+            const sum = store.intentLogs.reduce((acc, log) => acc + log.newIntentLevel, 0);
             return sum / store.intentLogs.length;
         }
         return store.intentLevel || 0;
     };
 
-    const getAverageMonthlySales = (store: any) => {
+    const getAverageMonthlySales = (store: StoreStats) => {
         if (store.monthlySaleLogs && store.monthlySaleLogs.length > 0) {
-            const sum = store.monthlySaleLogs.reduce((acc: number, log: any) => acc + log.newMonthlySale, 0);
+            const sum = store.monthlySaleLogs.reduce((acc, log) => acc + log.newMonthlySale, 0);
             return sum / store.monthlySaleLogs.length;
         }
         return store.monthlySales || 0;
@@ -133,8 +149,6 @@ const VisitFrequencyReport = () => {
                 return stats.sort((a, b) => getAverageMonthlySales(b) - getAverageMonthlySales(a)).slice(0, 10);
             case 'lowestSales':
                 return stats.sort((a, b) => getAverageMonthlySales(a) - getAverageMonthlySales(b)).slice(0, 10);
-            default:
-                return stats.slice(0, 10);
         }
     };
 
@@ -166,7 +180,7 @@ const VisitFrequencyReport = () => {
         ],
     };
 
-    const chartOptions = {
+    const chartOptions: ChartOptions<'bar' | 'line'> = {
         responsive: true,
         plugins: {
             legend: {
@@ -255,7 +269,7 @@ const VisitFrequencyReport = () => {
 
                     <Card>
                         <CardContent>
-                            <Chart type='bar' options={chartOptions} data={chartData} />
+                            <Chart type="bar" options={chartOptions} data={chartData} />
                         </CardContent>
                     </Card>
                 </>

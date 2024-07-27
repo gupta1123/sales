@@ -12,6 +12,8 @@ import {
     Legend,
     TimeScale,
     ChartOptions,
+    BarController,
+    LineController
 } from 'chart.js';
 import 'chartjs-adapter-moment';
 import { Chart } from 'react-chartjs-2';
@@ -32,7 +34,9 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    TimeScale
+    TimeScale,
+    BarController,
+    LineController
 );
 
 type Store = {

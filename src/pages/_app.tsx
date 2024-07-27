@@ -100,7 +100,7 @@ const CreateDailyPricingModal = () => {
     brandName: 'Gajkesari',
     price: '',
     city: '',
-   
+
     employeeDto: { id: 86 }
   });
   const isModalOpen = useSelector((state: RootState) => state.auth.isModalOpen);
@@ -128,7 +128,7 @@ const CreateDailyPricingModal = () => {
           brandName: 'Gajkesari',
           price: '',
           city: '',
-         
+
           employeeDto: { id: 86 }
         });
       } else {
