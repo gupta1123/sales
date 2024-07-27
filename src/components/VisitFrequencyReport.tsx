@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import Select, { SingleValue } from 'react-select';
+import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,31 +30,16 @@ ChartJS.register(
     Legend
 );
 
-type Employee = {
+interface Employee {
     id: number;
     firstName: string;
     lastName: string;
-};
-
-type EmployeeOption = {
-    value: number;
-    label: string;
-};
-
-type StoreStat = {
-    storeId: number;
-    storeName: string;
-    visitFrequency: number;
-    intentLogs: { newIntentLevel: number }[];
-    intentLevel: number;
-    monthlySaleLogs: { newMonthlySale: number }[];
-    monthlySales: number;
-};
+}
 
 const VisitFrequencyReport = () => {
-    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
-    const [selectedEmployee, setSelectedEmployee] = useState<EmployeeOption | null>(null);
-    const [storeStats, setStoreStats] = useState<StoreStat[]>([]);
+    const [employees, setEmployees] = useState<{ value: number, label: string }[]>([]);
+    const [selectedEmployee, setSelectedEmployee] = useState<{ value: number, label: string } | null>(null);
+    const [storeStats, setStoreStats] = useState<any[]>([]);
     const [displayMode, setDisplayMode] = useState('mostVisited');
     const [startDate, setStartDate] = useState('2024-05-01');
     const [endDate, setEndDate] = useState('2024-06-30');
@@ -75,7 +60,7 @@ const VisitFrequencyReport = () => {
 
     const fetchEmployees = async () => {
         try {
-            const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
+            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const employeeOptions = response.data.map((emp: Employee) => ({
@@ -90,7 +75,7 @@ const VisitFrequencyReport = () => {
 
     const fetchStoreStats = async () => {
         try {
-            const response = await axios.get<StoreStat[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
+            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
                 params: {
                     employeeId: selectedEmployee?.value,
                     startDate,
@@ -104,7 +89,7 @@ const VisitFrequencyReport = () => {
         }
     };
 
-    const handleEmployeeSelect = (selected: SingleValue<EmployeeOption>) => {
+    const handleEmployeeSelect = (selected: { value: number, label: string } | null) => {
         setSelectedEmployee(selected);
     };
 
@@ -117,17 +102,17 @@ const VisitFrequencyReport = () => {
         }
     };
 
-    const getAverageIntentLevel = (store: StoreStat) => {
+    const getAverageIntentLevel = (store: any) => {
         if (store.intentLogs && store.intentLogs.length > 0) {
-            const sum = store.intentLogs.reduce((acc, log) => acc + log.newIntentLevel, 0);
+            const sum = store.intentLogs.reduce((acc: number, log: any) => acc + log.newIntentLevel, 0);
             return sum / store.intentLogs.length;
         }
         return store.intentLevel || 0;
     };
 
-    const getAverageMonthlySales = (store: StoreStat) => {
+    const getAverageMonthlySales = (store: any) => {
         if (store.monthlySaleLogs && store.monthlySaleLogs.length > 0) {
-            const sum = store.monthlySaleLogs.reduce((acc, log) => acc + log.newMonthlySale, 0);
+            const sum = store.monthlySaleLogs.reduce((acc: number, log: any) => acc + log.newMonthlySale, 0);
             return sum / store.monthlySaleLogs.length;
         }
         return store.monthlySales || 0;

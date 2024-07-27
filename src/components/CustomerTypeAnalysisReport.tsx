@@ -23,7 +23,7 @@ type CustomerTypeData = {
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 const RADIAN = Math.PI / 180;
 
-const CustomerTypeAnalysisReport = () => {
+const CustomerTypeAnalysisReport: React.FC = () => {
     const [employees, setEmployees] = useState<{ value: number; label: string }[]>([]);
     const [selectedEmployee, setSelectedEmployee] = useState<{ value: number; label: string } | null>(null);
     const [customerTypeData, setCustomerTypeData] = useState<CustomerTypeData[]>([]);
@@ -57,7 +57,7 @@ const CustomerTypeAnalysisReport = () => {
                     value: emp.id,
                     label: `${emp.firstName} ${emp.lastName}`
                 }))
-                .sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
+                .sort((a, b) => a.label.localeCompare(b.label));
             setEmployees(employeeOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
@@ -109,7 +109,7 @@ const CustomerTypeAnalysisReport = () => {
     };
 
     const renderActiveShape = (props: any) => {
-        const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
+        const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
         const sin = Math.sin(-RADIAN * midAngle);
         const cos = Math.cos(-RADIAN * midAngle);
         const sx = cx + (outerRadius + 10) * cos;
@@ -157,7 +157,7 @@ const CustomerTypeAnalysisReport = () => {
         setActiveIndex(index);
     };
 
-    const CustomizedLegend = ({ payload }: { payload: any[] }) => (
+    const CustomizedLegend: React.FC<{ payload?: any[] }> = ({ payload = [] }) => (
         <ul className="list-none pl-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-xs">
             {payload.map((entry, index) => (
                 <li key={`item-${index}`} className="flex items-center">
@@ -182,7 +182,7 @@ const CustomerTypeAnalysisReport = () => {
         }
 
         return (
-            <div className="w-full h-[500px]"> {/* Increased height */}
+            <div className="w-full h-[500px]">
                 <ResponsiveContainer>
                     <PieChart>
                         <Pie
@@ -191,19 +191,19 @@ const CustomerTypeAnalysisReport = () => {
                             data={customerTypeData}
                             cx="50%"
                             cy="50%"
-                            innerRadius={80}  // Increased inner radius
-                            outerRadius={160} // Increased outer radius
+                            innerRadius={80}
+                            outerRadius={160}
                             fill="#8884d8"
                             dataKey="value"
                             onMouseEnter={onPieEnter}
-                            label={false}  // Disable default labels
+                            label={false}
                         >
                             {customerTypeData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                         </Pie>
                         <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
-                        <Legend content={(props: any) => <CustomizedLegend {...props} />} verticalAlign="bottom" height={36} />
+                        <Legend content={<CustomizedLegend />} verticalAlign="bottom" height={36} />
                     </PieChart>
                 </ResponsiveContainer>
             </div>
