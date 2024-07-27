@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import Select from 'react-select';
+import Select, { SingleValue } from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,49 +30,67 @@ ChartJS.register(
     Legend
 );
 
-interface Employee {
+type Employee = {
     id: number;
     firstName: string;
     lastName: string;
-    role: string; // Assuming role is part of the employee data
-}
+};
+
+type EmployeeOption = {
+    value: number;
+    label: string;
+};
+
+type StoreStat = {
+    storeId: number;
+    storeName: string;
+    visitFrequency: number;
+    intentLogs: { newIntentLevel: number }[];
+    intentLevel: number;
+    monthlySaleLogs: { newMonthlySale: number }[];
+    monthlySales: number;
+};
 
 const VisitFrequencyReport = () => {
-    const [employees, setEmployees] = useState<{ value: number, label: string }[]>([]);
-    const [selectedEmployee, setSelectedEmployee] = useState<{ value: number, label: string } | null>(null);
-    const [storeStats, setStoreStats] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+    const [selectedEmployee, setSelectedEmployee] = useState<EmployeeOption | null>(null);
+    const [storeStats, setStoreStats] = useState<StoreStat[]>([]);
     const [displayMode, setDisplayMode] = useState('mostVisited');
     const [startDate, setStartDate] = useState('2024-05-01');
     const [endDate, setEndDate] = useState('2024-06-30');
 
     const token = useSelector((state: RootState) => state.auth.token);
 
-    const fetchEmployees = useCallback(async () => {
-        try {
-            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const employeeOptions = response.data
-                .filter((emp: Employee) => emp.role === 'Field Officer') // Filter only Field Officers
-                .map((emp: Employee) => ({
-                    value: emp.id,
-                    label: `${emp.firstName} ${emp.lastName}`
-                }));
-            setEmployees(employeeOptions);
-        } catch (error) {
-            console.error('Error fetching employees:', error);
-        }
-    }, [token]);
-
     useEffect(() => {
         if (token) {
             fetchEmployees();
         }
-    }, [token, fetchEmployees]);
+    }, [token]);
 
-    const fetchStoreStats = useCallback(async () => {
+    useEffect(() => {
+        if (selectedEmployee) {
+            fetchStoreStats();
+        }
+    }, [selectedEmployee, startDate, endDate]);
+
+    const fetchEmployees = async () => {
         try {
-            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
+            const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const employeeOptions = response.data.map((emp: Employee) => ({
+                value: emp.id,
+                label: `${emp.firstName} ${emp.lastName}`
+            }));
+            setEmployees(employeeOptions);
+        } catch (error) {
+            console.error('Error fetching employees:', error);
+        }
+    };
+
+    const fetchStoreStats = async () => {
+        try {
+            const response = await axios.get<StoreStat[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/report/getStoreStats', {
                 params: {
                     employeeId: selectedEmployee?.value,
                     startDate,
@@ -84,15 +102,9 @@ const VisitFrequencyReport = () => {
         } catch (error) {
             console.error('Error fetching store stats:', error);
         }
-    }, [selectedEmployee, startDate, endDate, token]);
+    };
 
-    useEffect(() => {
-        if (selectedEmployee) {
-            fetchStoreStats();
-        }
-    }, [selectedEmployee, startDate, endDate, fetchStoreStats]);
-
-    const handleEmployeeSelect = (selected: { value: number, label: string } | null) => {
+    const handleEmployeeSelect = (selected: SingleValue<EmployeeOption>) => {
         setSelectedEmployee(selected);
     };
 
@@ -105,17 +117,17 @@ const VisitFrequencyReport = () => {
         }
     };
 
-    const getAverageIntentLevel = (store: any) => {
+    const getAverageIntentLevel = (store: StoreStat) => {
         if (store.intentLogs && store.intentLogs.length > 0) {
-            const sum = store.intentLogs.reduce((acc: number, log: any) => acc + log.newIntentLevel, 0);
+            const sum = store.intentLogs.reduce((acc, log) => acc + log.newIntentLevel, 0);
             return sum / store.intentLogs.length;
         }
         return store.intentLevel || 0;
     };
 
-    const getAverageMonthlySales = (store: any) => {
+    const getAverageMonthlySales = (store: StoreStat) => {
         if (store.monthlySaleLogs && store.monthlySaleLogs.length > 0) {
-            const sum = store.monthlySaleLogs.reduce((acc: number, log: any) => acc + log.newMonthlySale, 0);
+            const sum = store.monthlySaleLogs.reduce((acc, log) => acc + log.newMonthlySale, 0);
             return sum / store.monthlySaleLogs.length;
         }
         return store.monthlySales || 0;

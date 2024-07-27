@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useCallback } from 'react';
-
 import { useSelector } from 'react-redux';
 import Select from 'react-select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,10 +35,19 @@ const CustomerTypeAnalysisReport = () => {
 
     const token = useSelector((state: RootState) => state.auth.token);
 
+    useEffect(() => {
+        if (token) {
+            fetchEmployees();
+        }
+    }, [token]);
 
+    useEffect(() => {
+        if (selectedEmployee) {
+            fetchCustomerTypeData();
+        }
+    }, [selectedEmployee, startDate, endDate]);
 
-
-    const fetchEmployees = useCallback(async () => {
+    const fetchEmployees = async () => {
         try {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -56,15 +63,9 @@ const CustomerTypeAnalysisReport = () => {
             console.error('Error fetching employees:', error);
             setError('Failed to fetch employees');
         }
-    }, [token]);
-    useEffect(() => {
-        if (token) {
-            fetchEmployees();
-        }
-    }, [token, fetchEmployees]);
+    };
 
- 
-    const fetchCustomerTypeData = useCallback(async () => {
+    const fetchCustomerTypeData = async () => {
         if (!selectedEmployee) return;
         setIsLoading(true);
         setError(null);
@@ -92,13 +93,8 @@ const CustomerTypeAnalysisReport = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedEmployee, startDate, endDate, token]);
+    };
 
-    useEffect(() => {
-        if (selectedEmployee) {
-            fetchCustomerTypeData();
-        }
-    }, [selectedEmployee, startDate, endDate, fetchCustomerTypeData]);
     const handleEmployeeSelect = (selected: { value: number; label: string } | null) => {
         setSelectedEmployee(selected);
     };
@@ -207,7 +203,7 @@ const CustomerTypeAnalysisReport = () => {
                             ))}
                         </Pie>
                         <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
-                        <Legend content={<CustomizedLegend payload={customerTypeData} />} verticalAlign="bottom" height={36} />
+                        <Legend content={(props: any) => <CustomizedLegend {...props} />} verticalAlign="bottom" height={36} />
                     </PieChart>
                 </ResponsiveContainer>
             </div>

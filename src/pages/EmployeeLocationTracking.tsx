@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import maplibregl, { Map as MapLibreMap, NavigationControl, Marker, Popup } from 'maplibre-gl';
-import { RootState } from '../store'; // Adjust this import path as needed
+import { RootState } from '../store'; 
 import Select from 'react-select';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import styles from './EmployeeLocationTracking.module.css';
