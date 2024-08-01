@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { FixedSizeList as List } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
+import { FixedSizeList as List } from 'react-window';
 
 interface Employee {
   id: number;
@@ -22,7 +22,7 @@ interface Employee {
 }
 
 interface Store {
-  storeId: number;
+  id: number;
   storeName: string;
 }
 
@@ -38,17 +38,11 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
-  const [storePage, setStorePage] = useState(0);
-  const [hasMoreStores, setHasMoreStores] = useState(true);
-  const [isLoadingStores, setIsLoadingStores] = useState(false);
 
   const token = useSelector((state: RootState) => state.auth.token);
   const role = useSelector((state: RootState) => state.auth.role);
   const employeeId = useSelector((state: RootState) => state.auth.employeeId);
-  const teamId = useSelector((state: RootState) => state.auth.teamId);
   const loggedInUserId = useSelector((state: RootState) => state.auth.employeeId);
-
-  const listRef = useRef<List>(null);
 
   const purposes = ['Follow Up', 'Order', 'Birthday', 'Payment', 'Others'];
 
@@ -68,61 +62,29 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
   }, [role, employeeId, token]);
 
   const fetchStores = useCallback(async () => {
-    if (isLoadingStores) return;
-    setIsLoadingStores(true);
     try {
-      const url = role === 'MANAGER'
-        ? `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/getForTeam?teamId=${teamId}`
-        : `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/getByEmployee?id=${selectedEmployee}`;
-
-      const params = new URLSearchParams({
-        page: storePage.toString(),
-        size: '20',
-        sort: 'storeName,asc'
-      });
-
-      const response = await fetch(`${url}&${params.toString()}`, {
+      const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/names', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
 
-      if (Array.isArray(data.content)) {
-        setStores(prevStores => [...prevStores, ...data.content]);
-        setHasMoreStores(!data.last);
-        setStorePage(prevPage => prevPage + 1);
+      if (Array.isArray(data)) {
+        setStores(data);
       } else {
-        setHasMoreStores(false);
+        console.error('Unexpected response format:', data);
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
-    } finally {
-      setIsLoadingStores(false);
     }
-  }, [role, selectedEmployee, storePage, isLoadingStores, token, teamId]);
+  }, [token]);
 
   useEffect(() => {
     fetchEmployees();
   }, [fetchEmployees]);
 
   useEffect(() => {
-    if (selectedEmployee) {
-      resetStoreSelection();
-      fetchStores();
-    }
-  }, [selectedEmployee, fetchStores]);
-
-  const resetStoreSelection = () => {
-    setStores([]);
-    setSelectedStore('');
-    setStorePage(0);
-    setHasMoreStores(true);
-  };
-
-  const handleLoadMoreStores = () => {
-    if (hasMoreStores && !isLoadingStores) {
-      fetchStores();
-    }
-  };
+    fetchStores();
+  }, [fetchStores]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,8 +93,8 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
       employeeId: parseInt(selectedEmployee, 10),
       visit_date: visitDate ? format(visitDate, "yyyy-MM-dd") : "",
       purpose: visitPurpose === 'Others' ? otherPurpose : visitPurpose,
-      isSelfGenerated: false,
-      assignedById: loggedInUserId,
+      isSelfGenerated: role !== 'MANAGER',
+      ...(role === 'MANAGER' && { assignedById: loggedInUserId })
     };
 
     try {
@@ -158,24 +120,11 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
   };
 
   const StoreItem = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-    if (index === stores.length && hasMoreStores) {
-      return (
-        <div style={style}>
-          <Button
-            onClick={handleLoadMoreStores}
-            disabled={isLoadingStores}
-            className="w-full"
-          >
-            {isLoadingStores ? 'Loading...' : 'Load More'}
-          </Button>
-        </div>
-      );
-    }
     const store = stores[index];
     if (!store) return null;
     return (
       <div style={style}>
-        <SelectItem value={store.storeId.toString()}>
+        <SelectItem value={store.id.toString()}>
           {store.storeName}
         </SelectItem>
       </div>
@@ -242,7 +191,7 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
           value={selectedEmployee}
           onValueChange={(value) => {
             setSelectedEmployee(value);
-            resetStoreSelection();
+            setSelectedStore('');
           }}
         >
           <SelectTrigger>
@@ -273,9 +222,8 @@ const AddVisits: React.FC<AddVisitsProps> = ({ closeModal }) => {
               <AutoSizer>
                 {({ height, width }) => (
                   <List
-                    ref={listRef}
                     height={height}
-                    itemCount={stores.length + (hasMoreStores ? 1 : 0)}
+                    itemCount={stores.length}
                     itemSize={35}
                     width={width}
                     overscanCount={5}

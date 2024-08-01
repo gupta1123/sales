@@ -663,20 +663,9 @@ const VisitDetailPage: React.FC = () => {
   };
 
   const handleBack = () => {
-    if (returnTo === 'employeeDetails') {
-      router.push({
-        pathname: '/Dashboard',
-        query: {
-          view: 'employeeDetails',
-          employeeId: employeeId,
-          startDate: startDate,
-          endDate: endDate
-        }
-      });
-    } else {
-      router.push('/Dashboard');
-    }
+    router.back();
   };
+
 
 
   const createTask = async (taskType: string) => {

@@ -21,7 +21,7 @@ import { useRouter } from 'next/router';
 interface Visit {
     id: string;
     storeId: string;
-    employeeId: string;
+    employeeId: number;
     employeeName: string;
     purpose: string | null;
     visit_date: string;
@@ -285,6 +285,7 @@ interface EmployeeDetailsProps {
     currentPage: number;
     setCurrentPage: (page: number) => void;
     isLoading: boolean;
+    onBackClick: () => void;
 }
 
 

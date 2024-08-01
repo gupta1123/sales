@@ -14,6 +14,7 @@ interface AuthState {
   lastName: null | string;
   teamId: null | number;
   officeManagerId: number | null;
+  teamMembers: any[]; // Add this line to store team members
   isModalOpen: boolean; // Add this line
 }
 
@@ -57,11 +58,6 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
         return rejectWithValue('Invalid username or password');
       }
 
-      if (!response.data || typeof response.data !== 'string' || !response.data.includes(' ')) {
-        console.error('Unexpected response format:', response.data);
-        return rejectWithValue('Unexpected response from server');
-      }
-
       const [role, token] = response.data.split(' ');
       localStorage.setItem('token', token);
       localStorage.setItem('role', role);
@@ -75,23 +71,11 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
         await dispatch(fetchTeamInfo());
       }
 
-      await dispatch(checkDailyPricing()); // Check daily pricing after login
+      await dispatch(checkDailyPricing());
 
       return { role, token };
     } catch (error: any) {
-      console.error('Login error:', error);
-      if (error.response) {
-        console.error('Error response:', error.response.data);
-        console.error('Error status:', error.response.status);
-        console.error('Error headers:', error.response.headers);
-        return rejectWithValue(error.response.data || `Server error: ${error.response.status}`);
-      } else if (error.request) {
-        console.error('Error request:', error.request);
-        return rejectWithValue('No response received from server');
-      } else {
-        console.error('Error message:', error.message);
-        return rejectWithValue(error.message || 'An unknown error occurred');
-      }
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -103,7 +87,6 @@ export const fetchUserInfo = createAsyncThunk<UserInfo, string, { rejectValue: s
       const response = await api.get(`/user/manage/get?username=${username}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching user info:', error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -116,13 +99,11 @@ export const fetchTeamInfo = createAsyncThunk<TeamInfo | null, void, { rejectVal
       const state = getState() as { auth: AuthState };
       const employeeId = state.auth.employeeId;
       if (!employeeId) {
-        console.log('Employee ID not available, skipping team info fetch');
         return null;
       }
       const response = await api.get(`/employee/team/getbyEmployee?id=${employeeId}`);
-      return response.data[0]; // Assuming the API returns an array with one item
+      return response.data[0];
     } catch (error: any) {
-      console.error('Error fetching team info:', error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -140,7 +121,6 @@ export const checkDailyPricing = createAsyncThunk<void, void, { rejectValue: str
         dispatch(setModalOpen(true));
       }
     } catch (error: any) {
-      console.error('Error checking daily pricing:', error);
       return rejectWithValue(error.response?.data || error.message);
     }
   }
@@ -175,7 +155,8 @@ const initialState: AuthState = {
   lastName: null,
   teamId: null,
   officeManagerId: null,
-  isModalOpen: false, // Initialize it here
+  teamMembers: [], // Initialize it here
+  isModalOpen: false,
 };
 
 // Auth Slice
@@ -221,6 +202,7 @@ const authSlice = createSlice({
       .addCase(fetchTeamInfo.fulfilled, (state, action) => {
         if (action.payload) {
           state.teamId = action.payload.id;
+          state.teamMembers = action.payload.fieldOfficers;
           localStorage.setItem('teamId', action.payload.id.toString());
         }
       })

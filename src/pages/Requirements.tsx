@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, subDays, differenceInDays } from 'date-fns';
-import { CalendarIcon, MoreHorizontal } from 'lucide-react';
+import { CalendarIcon, MoreHorizontal, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,6 +58,7 @@ interface Store {
 
 const Requirements = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
     const [newTask, setNewTask] = useState<Task>({
         id: 0,
         taskTitle: '',
@@ -76,6 +77,7 @@ const Requirements = () => {
     });
     const [editTask, setEditTask] = useState<Task | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [sortColumn, setSortColumn] = useState('id');
     const [sortDirection, setSortDirection] = useState('desc');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -100,8 +102,6 @@ const Requirements = () => {
     const teamId = useSelector((state: RootState) => state.auth.teamId);
 
     const router = useRouter();
-
-  
 
     useEffect(() => {
         if (errorMessage) {
@@ -139,9 +139,12 @@ const Requirements = () => {
     const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
+            const formattedStartDate = format(new Date(filters.startDate), 'yyyy-MM-dd');
+            const formattedEndDate = format(new Date(filters.endDate), 'yyyy-MM-dd');
+
             const url = role === 'MANAGER' ?
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${filters.startDate}&end=${filters.endDate}&id=${teamId}` :
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${filters.startDate}&end=${filters.endDate}`;
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${formattedStartDate}&end=${formattedEndDate}&id=${teamId}` :
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${formattedStartDate}&end=${formattedEndDate}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -166,6 +169,9 @@ const Requirements = () => {
         }
     }, [role, teamId, token, filters.startDate, filters.endDate]);
 
+    useEffect(() => {
+        fetchTasks();
+    }, [token, currentPage, sortColumn, sortDirection, filters, fetchTasks]);
 
     const fetchEmployees = useCallback(async () => {
         try {
@@ -181,7 +187,6 @@ const Requirements = () => {
         }
     }, [token]);
 
-
     const fetchStores = useCallback(async () => {
         try {
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/store/names', {
@@ -195,6 +200,7 @@ const Requirements = () => {
             console.error('Error fetching stores:', error);
         }
     }, [token]);
+
     useEffect(() => {
         fetchTasks();
     }, [token, currentPage, sortColumn, sortDirection, filters, fetchTasks]);
@@ -206,11 +212,11 @@ const Requirements = () => {
         }
     }, [isModalOpen, token, fetchEmployees, fetchStores]);
 
-
     const createTask = async () => {
         try {
             const taskToCreate = {
                 ...newTask,
+                dueDate: format(new Date(newTask.dueDate), 'yyyy-MM-dd'), // Ensuring only the date part is included
                 taskType: 'requirement',
             };
 
@@ -279,7 +285,6 @@ const Requirements = () => {
                 )
             );
             setIsModalOpen(false);
-
         } catch (error) {
             console.error('Error updating task:', error);
         }
@@ -347,6 +352,31 @@ const Requirements = () => {
         }));
     };
 
+    const applyFilters = useCallback(() => {
+        const filtered = tasks
+            .filter(
+                (task) =>
+                    task.taskType === 'requirement' &&
+                    (
+                        (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
+                        (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
+                    ) &&
+                    (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
+                    (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
+                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
+                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
+                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
+            )
+            .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+
+        setFilteredTasks(filtered);
+        setTotalPages(Math.ceil(filtered.length / 10));
+    }, [tasks, filters]);
+
+    useEffect(() => {
+        applyFilters();
+    }, [tasks, filters, applyFilters]);
+
     const renderTag = (value: string | null | undefined, type: string) => {
         if (!value) {
             return null;
@@ -388,7 +418,6 @@ const Requirements = () => {
     };
 
     const renderPagination = () => {
-        const totalPages = Math.ceil(tasks.length / 10);
         const pageNumbers = [];
         const displayPages = 5;
 
@@ -535,7 +564,7 @@ const Requirements = () => {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {sortedTasks.slice((currentPage - 1) * 10, currentPage * 10).map((task) => (
+                {filteredTasks.slice((currentPage - 1) * 10, currentPage * 10).map((task) => (
                     <TableRow key={task.id}>
                         <TableCell>{task.taskTitle}</TableCell>
                         <TableCell>{task.taskDescription}</TableCell>
@@ -594,31 +623,27 @@ const Requirements = () => {
         </Table>
     );
 
-    const sortedTasks = tasks
-        .filter(
-            (task) =>
-                task.taskType === 'requirement' &&
-                (
-                    (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
-                    (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
-                ) &&
-                (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
-                (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
-                (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
-                (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
-        )
-        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
-
     return (
         <div className="container mx-auto py-12 outlined-container">
             <h1 className="text-3xl font-bold mb-6">Requirements Management</h1>
             <div className="mb-4 flex space-x-4 items-center">
-                <Input
-                    placeholder="Search by description or store name"
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
+                <div className="relative">
+                    <Input
+                        placeholder="Search by description or store name"
+                        value={filters.search}
+                        onChange={(e) => handleFilterChange('search', e.target.value)}
+                    />
+                    {filters.search && (
+                        <Button
+                            variant="ghost"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                            onClick={() => handleFilterChange('search', '')}
+                        >
+                            <XIcon className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
+
                 <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
                     <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="Filter by priority" />
@@ -682,7 +707,7 @@ const Requirements = () => {
                     <Switch checked={viewMode === 'table'} onCheckedChange={(checked) => setViewMode(checked ? 'table' : 'card')} />
                     <span>{viewMode === 'table' ? 'Table View' : 'Card View'}</span>
                 </div>
-            </div >
+            </div>
 
             <Button onClick={() => { setIsModalOpen(true); setActiveTab('general'); }} className="mb-6">
                 Create Requirements
@@ -818,26 +843,28 @@ const Requirements = () => {
                             </div>
                         </TabsContent>
                     </Tabs>
-                </DialogContent >
-            </Dialog >
+                </DialogContent>
+            </Dialog>
 
-            {viewMode === 'card' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {isLoading ? (
-                        <p>Loading...</p>
-                    ) : sortedTasks.length === 0 ? (
-                        <p>No requirements found.</p>
-                    ) : (
-                        sortedTasks
-                            .slice((currentPage - 1) * 10, currentPage * 10)
-                            .map(renderTaskCard)
-                    )}
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    {renderTableView()}
-                </div>
-            )}
+            {
+                viewMode === 'card' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {isLoading ? (
+                            <p>Loading...</p>
+                        ) : filteredTasks.length === 0 ? (
+                            <p>No requirements found.</p>
+                        ) : (
+                            filteredTasks
+                                .slice((currentPage - 1) * 10, currentPage * 10)
+                                .map(renderTaskCard)
+                        )}
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        {renderTableView()}
+                    </div>
+                )
+            }
 
             <div className="mt-8 flex justify-between items-center">
                 {renderPagination()}

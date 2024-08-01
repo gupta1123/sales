@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,39 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
 import { RootState } from '../store';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-    Legend,
-    BarController,
-    LineController,
-    ChartOptions
-} from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, BarController, LineController, ChartOptions } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-    Legend,
-    BarController,
-    LineController
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, BarController, LineController);
 
 interface Employee {
     id: number;
     firstName: string;
     lastName: string;
+    role: string;
 }
 
 interface StoreStats {
@@ -51,9 +28,14 @@ interface StoreStats {
     monthlySales?: number;
 }
 
+interface EmployeeOption {
+    value: number;
+    label: string;
+}
+
 const VisitFrequencyReport: React.FC = () => {
-    const [employees, setEmployees] = useState<{ value: number; label: string }[]>([]);
-    const [selectedEmployee, setSelectedEmployee] = useState<{ value: number; label: string } | null>(null);
+    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+    const [selectedEmployee, setSelectedEmployee] = useState<EmployeeOption | null>(null);
     const [storeStats, setStoreStats] = useState<StoreStats[]>([]);
     const [displayMode, setDisplayMode] = useState<'mostVisited' | 'leastVisited' | 'highestIntent' | 'lowestIntent' | 'highestSales' | 'lowestSales'>('mostVisited');
     const [startDate, setStartDate] = useState('2024-05-01');
@@ -78,15 +60,19 @@ const VisitFrequencyReport: React.FC = () => {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const employeeOptions = response.data.map((emp: Employee) => ({
-                value: emp.id,
-                label: `${emp.firstName} ${emp.lastName}`
-            }));
+            const fieldOfficers = response.data.filter(emp => emp.role === "Field Officer");
+            const employeeOptions = fieldOfficers
+                .map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName}`
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label)); // Sort employees alphabetically
             setEmployees(employeeOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
     };
+
 
     const fetchStoreStats = async () => {
         if (!selectedEmployee) return;

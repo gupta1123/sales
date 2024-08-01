@@ -17,12 +17,10 @@ import { Card } from '@/components/ui/card';
 import { Pagination, PaginationContent, PaginationLink, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -57,6 +55,7 @@ interface Store {
 
 const Complaints = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
     const [newTask, setNewTask] = useState<Task>({
         id: 0,
         taskTitle: '',
@@ -94,10 +93,6 @@ const Complaints = () => {
     const token = useSelector((state: RootState) => state.auth.token);
     const role = useSelector((state: RootState) => state.auth.role);
     const teamId = useSelector((state: RootState) => state.auth.teamId);
-
-   
-
-  
 
     useEffect(() => {
         if (errorMessage) {
@@ -144,9 +139,12 @@ const Complaints = () => {
     const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
+            const formattedStartDate = format(new Date(filters.startDate), 'yyyy-MM-dd');
+            const formattedEndDate = format(new Date(filters.endDate), 'yyyy-MM-dd');
+
             const url = role === 'MANAGER' ?
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${filters.startDate}&end=${filters.endDate}&id=${teamId}` :
-                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${filters.startDate}&end=${filters.endDate}`;
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByTeamAndDate?start=${formattedStartDate}&end=${formattedEndDate}&id=${teamId}` :
+                `http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/getByDate?start=${formattedStartDate}&end=${formattedEndDate}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -211,12 +209,34 @@ const Complaints = () => {
         }
     }, [isModalOpen, token, fetchEmployees, fetchStores]);
 
+    useEffect(() => {
+        applyFilters();
+    }, [tasks, filters]);
 
+    const applyFilters = () => {
+        const filtered = tasks
+            .filter(
+                (task) =>
+                    task.taskType === 'complaint' &&
+                    (
+                        (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
+                        (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
+                    ) &&
+                    (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
+                    (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
+                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
+                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
+                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
+            );
+
+        setFilteredTasks(filtered);
+    };
 
     const createTask = async () => {
         try {
             const taskToCreate = {
                 ...newTask,
+                dueDate: format(new Date(newTask.dueDate), 'yyyy-MM-dd'), // Ensuring only the date part is included
                 taskType: 'complaint',
             };
 
@@ -290,14 +310,22 @@ const Complaints = () => {
     };
 
     const deleteTask = async (taskId: number) => {
+        console.log('Deleting task with ID:', taskId); // Log the taskId for debugging
         try {
-            await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/deleteById?taskId=${taskId}`, {
+            const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/task/deleteById?taskId=${taskId}`, {
                 method: 'DELETE',
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            fetchTasks();
+
+            if (response.ok) {
+                fetchTasks(); // Fetch tasks again after deleting
+                console.log('Task deleted successfully');
+            } else {
+                const errorData = await response.json();
+                console.error('Error Deleting Task:', errorData.message || 'Unknown error');
+            }
         } catch (error) {
             console.error('Error deleting task:', error);
         }
@@ -347,7 +375,7 @@ const Complaints = () => {
     };
 
     const renderPagination = () => {
-        const totalPages = Math.ceil(tasks.length / 10);
+        const totalPages = Math.ceil(filteredTasks.length / 10);
         const pageNumbers = [];
         const displayPages = 5;
 
@@ -487,7 +515,7 @@ const Complaints = () => {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {tasks.slice((currentPage - 1) * 10, currentPage * 10).map(task => (
+                {filteredTasks.slice((currentPage - 1) * 10, currentPage * 10).map(task => (
                     <TableRow key={task.id}>
                         <TableCell>{task.taskTitle}</TableCell>
                         <TableCell>{task.taskDescription}</TableCell>
@@ -512,19 +540,7 @@ const Complaints = () => {
                         onChange={(e) => handleFilterChange('search', e.target.value)}
                         className="w-[150px]" // Custom width for the search input
                     />
-                    <Select value={filters.employee} onValueChange={(value) => handleFilterChange('employee', value)}>
-                        <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Filter by employee" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Employees</SelectItem>
-                            {employees.map((employee) => (
-                                <SelectItem key={employee.id} value={employee.id.toString()}>
-                                    {employee.firstName} {employee.lastName}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+
                     <Select value={filters.priority} onValueChange={(value) => handleFilterChange('priority', value)}>
                         <SelectTrigger className="w-[200px]">
                             <SelectValue placeholder="Filter by priority" />
@@ -725,25 +741,10 @@ const Complaints = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {isLoading ? (
                         <p>Loading...</p>
-                    ) : tasks.length === 0 ? (
+                    ) : filteredTasks.length === 0 ? (
                         <p>No complaints found.</p>
                     ) : (
-                        tasks
-                            .slice((currentPage - 1) * 10, currentPage * 10)
-                            .filter(
-                                (task) =>
-                                    task.taskType === 'complaint' &&
-                                    (
-                                        (task.taskDescription?.toLowerCase() || '').includes(filters.search.toLowerCase()) ||
-                                        (task.storeName?.toLowerCase() || '').includes(filters.search.toLowerCase())
-                                    ) &&
-                                    (filters.employee === '' || filters.employee === 'all' ? true : task.assignedToId === parseInt(filters.employee)) &&
-                                    (filters.priority === '' || filters.priority === 'all' ? true : task.priority === filters.priority) &&
-                                    (filters.status === '' || filters.status === 'all' ? true : task.status === filters.status) &&
-                                    (filters.startDate === '' || new Date(task.dueDate) >= new Date(filters.startDate)) &&
-                                    (filters.endDate === '' || new Date(task.dueDate) <= new Date(filters.endDate))
-                            )
-                            .map(renderComplaintCard)
+                        filteredTasks.slice((currentPage - 1) * 10, currentPage * 10).map(renderComplaintCard)
                     )}
                 </div>
             ) : (
@@ -755,7 +756,7 @@ const Complaints = () => {
             <div className="mt-8 flex justify-between items-center">
                 {renderPagination()}
             </div>
-        </div>
+        </div >
     );
 };
 

@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import Select from 'react-select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import axios from 'axios';
 import { format, parse, eachMonthOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { RootState } from '../store';
-
+import { MultiValue, ActionMeta } from 'react-select';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 type Employee = {
     id: number;
     firstName: string;
     lastName: string;
+    role: string;
 };
 
 type ReportData = {
@@ -22,14 +24,17 @@ type ReportData = {
     newStoreCount: number;
 };
 
+type EmployeeOption = { value: number; label: string };
+
 const NewCustomersReport = () => {
-    const [employees, setEmployees] = useState<{ value: number; label: string }[]>([]);
-    const [selectedEmployees, setSelectedEmployees] = useState<{ value: number; label: string }[]>([]);
+    const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+    const [selectedEmployees, setSelectedEmployees] = useState<EmployeeOption[]>([]);
+    const [excludedEmployees, setExcludedEmployees] = useState<EmployeeOption[]>([]);
     const [reportData, setReportData] = useState<Record<string, ReportData[]>>({});
     const [startDate, setStartDate] = useState('2024-05-18');
     const [endDate, setEndDate] = useState('2024-07-18');
-    const [topPerformers, setTopPerformers] = useState<{ name: string; count: number }[]>([]);
-    const [bottomPerformers, setBottomPerformers] = useState<{ name: string; count: number }[]>([]);
+    const [showTopPerformers, setShowTopPerformers] = useState(true);
+    const [isAutoSelect, setIsAutoSelect] = useState(true);
 
     const token = useSelector((state: RootState) => state.auth.token);
 
@@ -50,10 +55,13 @@ const NewCustomersReport = () => {
             const response = await axios.get<Employee[]>('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const employeeOptions = response.data.map((emp: Employee) => ({
-                value: emp.id,
-                label: `${emp.firstName} ${emp.lastName}`
-            }));
+            const fieldOfficers = response.data.filter(emp => emp.role === "Field Officer");
+            const employeeOptions = fieldOfficers
+                .map((emp: Employee) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName}`
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label)); // Sort employees alphabetically
             setEmployees(employeeOptions);
         } catch (error) {
             console.error('Error fetching employees:', error);
@@ -84,11 +92,20 @@ const NewCustomersReport = () => {
         const results = await Promise.all(fetchPromises);
         const newReportData = Object.fromEntries(results.map(({ month, data }) => [month, data]));
         setReportData(newReportData);
-        calculateTopAndBottomPerformers(newReportData);
     };
 
-    const calculateTopAndBottomPerformers = (data: Record<string, ReportData[]>) => {
-        const aggregatedData = Object.values(data).flat().reduce((acc: Record<string, number>, curr) => {
+    const filteredReportData = useMemo(() => {
+        const excludedEmployeeNames = excludedEmployees.map(emp => emp.label);
+        return Object.fromEntries(
+            Object.entries(reportData).map(([month, data]) => [
+                month,
+                data.filter(item => !excludedEmployeeNames.includes(item.employeeName))
+            ])
+        );
+    }, [reportData, excludedEmployees]);
+
+    const calculatedPerformers = useMemo(() => {
+        const aggregatedData = Object.values(filteredReportData).flat().reduce((acc: Record<string, number>, curr) => {
             if (!acc[curr.employeeName]) {
                 acc[curr.employeeName] = 0;
             }
@@ -100,37 +117,79 @@ const NewCustomersReport = () => {
             .sort(([, a], [, b]) => b - a)
             .map(([name, count]) => ({ name, count }));
 
-        setTopPerformers(sortedPerformers.slice(0, 5));
-        setBottomPerformers(sortedPerformers.slice(-5).reverse());
+        return {
+            topPerformers: sortedPerformers.slice(0, 5),
+            bottomPerformers: sortedPerformers.slice(-5).reverse(),
+            allPerformers: sortedPerformers
+        };
+    }, [filteredReportData]);
+
+    const updateSelectedEmployees = useCallback(() => {
+        if (!isAutoSelect) return;
+
+        const performersToShow = showTopPerformers ? calculatedPerformers.topPerformers : calculatedPerformers.bottomPerformers;
+        let newSelectedEmployees = performersToShow
+            .map(performer => employees.find(emp => emp.label.includes(performer.name)))
+            .filter((emp): emp is EmployeeOption => emp !== undefined);
+
+        // If we have less than 5 employees, add more from the sorted list
+        const sortedEmployees = employees
+            .filter(emp => !excludedEmployees.some(excluded => excluded.value === emp.value))
+            .sort((a, b) => {
+                const aCount = calculatedPerformers.topPerformers.find(p => p.name.includes(a.label))?.count || 0;
+                const bCount = calculatedPerformers.topPerformers.find(p => p.name.includes(b.label))?.count || 0;
+                return showTopPerformers ? bCount - aCount : aCount - bCount;
+            });
+
+        while (newSelectedEmployees.length < 5 && newSelectedEmployees.length < sortedEmployees.length) {
+            const nextEmployee = sortedEmployees.find(emp => !newSelectedEmployees.some(selected => selected.value === emp.value));
+            if (nextEmployee) {
+                newSelectedEmployees.push(nextEmployee);
+            } else {
+                break;
+            }
+        }
+
+        setSelectedEmployees(newSelectedEmployees);
+    }, [employees, excludedEmployees, calculatedPerformers, showTopPerformers, isAutoSelect]);
+
+    useEffect(() => {
+        updateSelectedEmployees();
+    }, [updateSelectedEmployees]);
+
+    const handleExcludedEmployeeSelect = (newValue: MultiValue<EmployeeOption>, actionMeta: ActionMeta<EmployeeOption>) => {
+        setExcludedEmployees(newValue as EmployeeOption[]);
+        if (isAutoSelect) {
+            updateSelectedEmployees();
+        } else {
+            setSelectedEmployees(prev => prev.filter(emp => !(newValue as EmployeeOption[]).some(excluded => excluded.value === emp.value)));
+        }
     };
 
-    const handleEmployeeSelect = (selected: any) => {
-        setSelectedEmployees(selected);
+    const handleEmployeeSelect = (newValue: MultiValue<EmployeeOption>, actionMeta: ActionMeta<EmployeeOption>) => {
+        setSelectedEmployees(newValue as EmployeeOption[]);
+        setIsAutoSelect(false);
     };
 
     const handleShowTopPerformers = () => {
-        const topEmployees = topPerformers.map(performer =>
-            employees.find(emp => emp.label.includes(performer.name))
-        ).filter(Boolean);
-        setSelectedEmployees(topEmployees as { value: number; label: string }[]);
+        setShowTopPerformers(true);
+        setIsAutoSelect(true);
     };
 
     const handleShowBottomPerformers = () => {
-        const bottomEmployees = bottomPerformers.map(performer =>
-            employees.find(emp => emp.label.includes(performer.name))
-        ).filter(Boolean);
-        setSelectedEmployees(bottomEmployees as { value: number; label: string }[]);
+        setShowTopPerformers(false);
+        setIsAutoSelect(true);
     };
 
-    const chartData = () => {
-        const months = Object.keys(reportData);
+    const chartData = useMemo(() => {
+        const months = Object.keys(filteredReportData);
         const datasets = selectedEmployees.map(employee => ({
             label: employee.label,
             data: months.map(month => {
-                const employeeData = reportData[month].find(data => data.employeeName === employee.label);
+                const employeeData = filteredReportData[month].find(data => data.employeeName === employee.label);
                 return employeeData ? employeeData.newStoreCount : 0;
             }),
-            borderColor: `rgb(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)})`,
+            borderColor: `hsl(${Math.random() * 360}, 70%, 50%)`,
             tension: 0.1
         }));
 
@@ -138,7 +197,14 @@ const NewCustomersReport = () => {
             labels: months,
             datasets: datasets
         };
-    };
+    }, [filteredReportData, selectedEmployees]);
+
+    const getTotalNewCustomers = useCallback((employeeName: string) => {
+        return Object.values(filteredReportData).reduce((total, monthData) => {
+            const employeeData = monthData.find(data => data.employeeName === employeeName);
+            return total + (employeeData ? employeeData.newStoreCount : 0);
+        }, 0);
+    }, [filteredReportData]);
 
     const chartOptions = {
         responsive: true,
@@ -165,47 +231,77 @@ const NewCustomersReport = () => {
     return (
         <div className="space-y-6">
             <Card>
-                <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Date Range</h3>
-                    <div className="flex space-x-4">
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="border p-2 rounded"
-                        />
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="border p-2 rounded"
-                        />
+                <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <h3 className="text-sm font-medium mb-2">Date Range</h3>
+                            <div className="flex space-x-2">
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full"
+                                />
+                                <Input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-medium mb-2">Select Employees</h3>
+                            <Select
+                                isMulti
+                                name="employees"
+                                options={employees.filter(emp => !excludedEmployees.some(excluded => excluded.value === emp.value))}
+                                className="basic-multi-select"
+                                classNamePrefix="select"
+                                onChange={handleEmployeeSelect}
+                                value={selectedEmployees}
+                            />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-medium mb-2">Exclude Employees</h3>
+                            <Select
+                                isMulti
+                                name="excludedEmployees"
+                                options={employees}
+                                className="basic-multi-select"
+                                classNamePrefix="select"
+                                onChange={handleExcludedEmployeeSelect}
+                                value={excludedEmployees}
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-4 flex justify-end space-x-2">
+                        <Button onClick={handleShowTopPerformers} size="sm" variant={showTopPerformers && isAutoSelect ? "default" : "outline"}>Top 5 Performers</Button>
+                        <Button onClick={handleShowBottomPerformers} size="sm" variant={!showTopPerformers && isAutoSelect ? "default" : "outline"}>Bottom 5 Performers</Button>
+                        <Button onClick={fetchReportData} size="sm">Refresh Data</Button>
                     </div>
                 </CardContent>
             </Card>
 
             <Card>
                 <CardContent>
-                    <h3 className="text-lg font-semibold mb-2">Select Employees</h3>
-                    <Select
-                        isMulti
-                        name="employees"
-                        options={employees}
-                        className="basic-multi-select"
-                        classNamePrefix="select"
-                        onChange={handleEmployeeSelect}
-                        value={selectedEmployees}
-                    />
-                    <div className="mt-4 flex space-x-4">
-                        <Button onClick={handleShowTopPerformers}>Show Top 5 Performers</Button>
-                        <Button onClick={handleShowBottomPerformers}>Show Bottom 5 Performers</Button>
-                    </div>
+                    <Line data={chartData} options={chartOptions} />
                 </CardContent>
             </Card>
 
             <Card>
                 <CardContent>
-                    <Line data={chartData()} options={chartOptions} />
+                    <h3 className="text-lg font-semibold mb-2">Selected Employees Performance</h3>
+                    <ul>
+                        {selectedEmployees.map((employee, index) => {
+                            const totalNewCustomers = getTotalNewCustomers(employee.label);
+                            return (
+                                <li key={index} className="mb-1">
+                                    {employee.label}: {totalNewCustomers} new customers
+                                </li>
+                            );
+                        })}
+                    </ul>
                 </CardContent>
             </Card>
         </div>

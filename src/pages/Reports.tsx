@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { FiUsers, FiBarChart2, FiMap, FiPieChart } from 'react-icons/fi';
+import { FiUsers, FiBarChart2, FiMap, FiPieChart, FiDollarSign } from 'react-icons/fi';
 import NewCustomersReport from '../components/NewCustomersReport';
 import SalesPerformanceReport from '../components/SalesPerformanceReport';
 import VisitFrequencyReport from '../components/VisitFrequencyReport';
 import CustomerTypeAnalysisReport from '../components/CustomerTypeAnalysisReport';
+import DailyPricingReport from '../components/DailyPricingReport';
 
 const Reports = () => {
     const [activeTab, setActiveTab] = useState('newCustomers');
@@ -14,13 +15,14 @@ const Reports = () => {
         { id: 'salesPerformance', label: 'Sales Performance', icon: FiBarChart2, description: 'Analyze sales performance across different products and regions' },
         { id: 'visitFrequency', label: 'Visit Frequency', icon: FiMap, description: 'Analyze visit frequency, intent level, and monthly sales by employee' },
         { id: 'customerTypeAnalysis', label: 'Customer Type Analysis', icon: FiPieChart, description: 'Analyze customer types for each employee' },
+        { id: 'dailyPricing', label: 'Daily Pricing', icon: FiDollarSign, description: 'Compare daily pricing from brands for each city' },
     ];
 
     return (
         <div className="container mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-8">Reports</h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 {tabs.map((tab) => (
                     <Card
                         key={tab.id}
@@ -40,6 +42,7 @@ const Reports = () => {
             {activeTab === 'salesPerformance' && <SalesPerformanceReport />}
             {activeTab === 'visitFrequency' && <VisitFrequencyReport />}
             {activeTab === 'customerTypeAnalysis' && <CustomerTypeAnalysisReport />}
+            {activeTab === 'dailyPricing' && <DailyPricingReport />}
         </div>
     );
 };
