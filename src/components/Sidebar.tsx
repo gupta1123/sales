@@ -40,7 +40,7 @@ const Sidebar: React.FC = () => {
     { href: '/Reports', icon: FiBarChart2, label: 'Reports', roles: ['ADMIN'] },
     { href: '/CustomerListPage', icon: FiUsers, label: 'Customers', roles: ['ADMIN', 'MANAGER', 'FIELD OFFICER'] },
     { href: '/Employeelist', icon: FiUser, label: 'Employee List', roles: ['ADMIN'] },
-    { href: '/EmployeeLocationTracking', icon: FiMapPin, label: 'Live Location', roles: ['ADMIN'] },
+
     { href: '/Settings', icon: FiSettings, label: 'Settings', roles: ['ADMIN'] },
   ];
 

@@ -18,21 +18,26 @@ import { ClipLoader } from 'react-spinners';
 import DateRangeDropdown from './DateRangeDropdown';
 import { useRouter } from 'next/router';
 
-interface Visit {
-    id: string;
-    storeId: string;
+type Visit = {
+    id: number;
     employeeId: number;
+    employeeFirstName: string;
+    employeeLastName: string;
+    employeeState: string;
+    storeId: number;
     employeeName: string;
-    purpose: string | null;
-    visit_date: string;
+    purpose: string;
     storeName: string;
-    state: string;
-    city: string;
-    checkinDate: string | null;
-    checkinTime: string | null;
-    checkoutDate: string | null;
-    checkoutTime: string | null;
-}
+    visit_date: string;
+    checkinTime: string;
+    checkoutTime: string;
+    statsDto: {
+        completedVisitCount: number;
+        fullDays: number;
+        halfDays: number;
+        absences: number;
+    };
+};
 
 interface KPICardProps {
     title: string;
@@ -80,7 +85,7 @@ const VisitsByPurposeChart = ({ data }: VisitsByPurposeChartProps) => {
 
 interface VisitsTableProps {
     visits: Visit[];
-    onViewDetails: (visitId: string) => void;
+    onViewDetails: (visitId: number) => void;
     currentPage: number;
     onPageChange: (page: number) => void;
 }
@@ -91,11 +96,11 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
     const [lastClickedColumn, setLastClickedColumn] = React.useState<keyof Visit | null>(null);
 
     const getOutcomeStatus = (visit: Visit): { emoji: React.ReactNode; status: string; color: string } => {
-        if (visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime) {
+        if (visit.checkinTime && visit.checkoutTime) {
             return { emoji: '✅', status: 'Completed', color: 'bg-purple-100 text-purple-800' };
-        } else if (visit.checkoutDate && visit.checkoutTime) {
+        } else if (visit.checkoutTime) {
             return { emoji: '⏱️', status: 'Checked Out', color: 'bg-orange-100 text-orange-800' };
-        } else if (visit.checkinDate && visit.checkinTime) {
+        } else if (visit.checkinTime) {
             return { emoji: '🕰️', status: 'On Going', color: 'bg-green-100 text-green-800' };
         }
         return { emoji: '📅', status: 'Assigned', color: 'bg-blue-100 text-blue-800' };
@@ -191,9 +196,9 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
                                     )
                                 )}
                             </th>
-                            <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('city')}>
+                            <th className="px-4 py-2 cursor-pointer" onClick={() => handleSort('employeeState')}>
                                 City
-                                {lastClickedColumn === 'city' && (
+                                {lastClickedColumn === 'employeeState' && (
                                     sortOrder === 'asc' ? (
                                         <ChevronUpIcon className="w-4 h-4 inline-block ml-1" />
                                     ) : (
@@ -215,7 +220,7 @@ const VisitsTable = ({ visits, onViewDetails, currentPage, onPageChange }: Visit
                                     <td className="px-4 py-2 capitalize">{visit.employeeName}</td>
                                     <td className="px-4 py-2">{format(parseISO(visit.visit_date), "dd MMM ''yy")}</td>
                                     <td className="px-4 py-2">{visit.purpose}</td>
-                                    <td className="px-4 py-2 capitalize">{visit.city}</td>
+                                    <td className="px-4 py-2 capitalize">{visit.employeeState}</td>
                                     <td className={`px-4 py-2 ${color}`}>{emoji} {status}</td>
                                     <td className="px-4 py-2">
                                         <button
@@ -281,13 +286,12 @@ interface EmployeeDetailsProps {
     setSelectedEmployee: (employee: string | null) => void;
     handleDateRangeChange: (start: string, end: string, option: string) => void;
     selectedOption: string;
-    handleViewDetails: (visitId: string) => void;
+    handleViewDetails: (visitId: number) => void;
     currentPage: number;
     setCurrentPage: (page: number) => void;
     isLoading: boolean;
     onBackClick: () => void;
 }
-
 
 const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({
     employeeDetails,
@@ -306,7 +310,7 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({
         if (!employeeDetails || !employeeDetails.visitDto) return [];
 
         const completedVisits = employeeDetails.visitDto.filter((visit) =>
-            visit.checkinDate && visit.checkinTime && visit.checkoutDate && visit.checkoutTime
+            visit.checkinTime && visit.checkoutTime
         );
 
         const visitsByPurpose = completedVisits.reduce((acc: { [key: string]: number }, visit) => {
@@ -324,7 +328,7 @@ const EmployeeDetails: React.FC<EmployeeDetailsProps> = ({
         }));
     }, [employeeDetails]);
 
-    const handleViewDetailsWithRouter = (visitId: string) => {
+    const handleViewDetailsWithRouter = (visitId: number) => {
         router.push({
             pathname: `/VisitDetailPage/${visitId}`,
             query: {

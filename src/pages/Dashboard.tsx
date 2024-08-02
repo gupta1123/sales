@@ -6,49 +6,25 @@ import { RootState, AppDispatch, fetchUserInfo, fetchTeamInfo } from '../store';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
-import { ClipLoader } from 'react-spinners';
-import { Skeleton } from "@/components/ui/skeleton";
+import { debounce } from 'lodash';
 
+import { ClipLoader } from 'react-spinners';
+import { Skeleton } from '@/components/ui/skeleton';
 import EmployeeCard1 from './EmployeeCard1';
 import EmployeeDetails from './EmployeeDetails';
 import DateRangeDropdown from './DateRangeDropdown';
 import maplibregl, { Map as MapLibreMap, NavigationControl, Marker, Popup } from 'maplibre-gl';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import 'maplibre-gl/dist/maplibre-gl.css';
-
-interface Visit {
-  id: string;
-  storeId: string;
-  employeeId: number; // Ensure this is consistent
-  employeeName: string;
-  purpose: string | null;
-  visit_date: string;
-  storeName: string;
-  state: string;
-  city: string;
-  checkinDate: string | null;
-  checkinTime: string | null;
-  checkoutDate: string | null;
-  checkoutTime: string | null;
-  employeeFirstName: string;
-  employeeLastName: string;
-  employeeState: string;
-  statsDto: {
-    completedVisitCount: number;
-    fullDays: number;
-    halfDays: number;
-    absences: number;
-  };
-}
+import EmployeeLocationList from './EmployeeLocationList';
 
 
-interface StateCardProps {
-  state: string;
-  totalEmployees: number;
-  onClick: () => void;
-}
+const API_BASE_URL = 'http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081';
+const MAP_STYLE_URL = 'https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json';
+const OLA_CLIENT_ID = '7ba2810b-f481-4e31-a0c6-d436b0c7c1eb';
+const OLA_CLIENT_SECRET = 'klymi04gaquWCnpa57hBEpMXR7YPhkLD';
 
-interface EmployeeLocation {
+type EmployeeLocation = {
   id: number;
   empId: number;
   empName: string;
@@ -56,12 +32,32 @@ interface EmployeeLocation {
   longitude: number;
   updatedAt: string;
   updatedTime: string;
-}
-
-const API_BASE_URL = 'http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081';
-const MAP_STYLE_URL = 'https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json';
-const OLA_CLIENT_ID = '7ba2810b-f481-4e31-a0c6-d436b0c7c1eb';
-const OLA_CLIENT_SECRET = 'klymi04gaquWCnpa57hBEpMXR7YPhkLD';
+};
+type Visit = {
+  id: number;
+  employeeId: number;
+  employeeFirstName: string;
+  employeeLastName: string;
+  employeeState: string;
+  storeId: number;
+  employeeName: string;
+  purpose: string;
+  storeName: string;
+  visit_date: string;
+  checkinTime: string;
+  checkoutTime: string;
+  statsDto: {
+    completedVisitCount: number;
+    fullDays: number;
+    halfDays: number;
+    absences: number;
+  };
+};
+type StateCardProps = {
+  state: string;
+  totalEmployees: number;
+  onClick: () => void;
+};
 
 const StateCard: React.FC<StateCardProps> = ({ state, totalEmployees, onClick }) => {
   return (
@@ -89,6 +85,7 @@ const Dashboard: React.FC = () => {
   } | null>(null);
   const [isMainDashboard, setIsMainDashboard] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [employeeInfo, setEmployeeInfo] = useState<any[]>([]); // Store employee info including city
 
   const [teamMembers, setTeamMembers] = useState<number[]>([]);
 
@@ -114,7 +111,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (token) {
       getAccessToken();
-      fetchAllEmployeeLocations();
+      fetchEmployeeInfo(); // Fetch employee info on component mount
     }
   }, [token]);
 
@@ -128,6 +125,17 @@ const Dashboard: React.FC = () => {
       });
     }
   }, [token, role, dispatch]);
+
+  const fetchEmployeeInfo = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/employee/getAll`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEmployeeInfo(response.data);
+    } catch (error) {
+      console.error('Error fetching employee info:', error);
+    }
+  }, [token]);
 
   const isInitialMount = useRef(true);
 
@@ -220,7 +228,7 @@ const Dashboard: React.FC = () => {
     }
   }, [router.query, router]);
 
-  const handleEmployeeClick = useCallback(async (employeeName: string, employeeId: number) => {
+  const handleEmployeeClick = useCallback(async (employeeName: string) => {
     setSelectedEmployee(employeeName.trim().toLowerCase());
     router.push({
       pathname: '/Dashboard',
@@ -245,7 +253,7 @@ const Dashboard: React.FC = () => {
     }
   }, [fetchEmployeeDetails, fetchVisits, selectedEmployee]);
 
-  const handleViewDetails = useCallback((visitId: string) => {
+  const handleViewDetails = useCallback((visitId: number) => {
     router.push({
       pathname: `/VisitDetailPage/${visitId}`,
       query: {
@@ -294,38 +302,70 @@ const Dashboard: React.FC = () => {
     setSelectedEmployee(null);
     setIsMainDashboard(true);
     setMapError(null); // Reset map error when returning to main dashboard
+    fetchAllEmployeeLocations(); // Re-fetch employee locations to reinitialize the map
     router.push('/Dashboard', undefined, { shallow: true });
   }, [router]);
 
   const fetchAllEmployeeLocations = useCallback(async () => {
     setIsMapLoading(true);
     setMapError(null);
+
     try {
-      const employeesResponse = await axios.get(`${API_BASE_URL}/employee/getAll`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (role === 'MANAGER') {
+        if (!teamMembers.length) {
+          setEmployeeLocations([]);
+          return;
+        }
 
-      const locationPromises = employeesResponse.data.map((employee: any) =>
-        axios.get(`${API_BASE_URL}/employee/getLiveLocation?id=${employee.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }).catch(error => {
-          console.log(`No live location for employee ${employee.id}`);
-          return null;
-        })
-      );
+        const locationPromises = teamMembers.map((employeeId) =>
+          axios.get(`${API_BASE_URL}/employee/getLiveLocation?id=${employeeId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(error => {
+            console.log(`No live location for employee ${employeeId}`);
+            return null;
+          })
+        );
 
-      const locationResponses = await Promise.all(locationPromises);
-      const locations = locationResponses
-        .filter(response => response && response.data)
-        .map(response => response.data)
-        .filter(location => location.latitude && location.longitude);
+        const locationResponses = await Promise.all(locationPromises);
+        const locations = locationResponses
+          .filter((response): response is AxiosResponse<EmployeeLocation> => response !== null && response.data)
+          .map((response) => response.data)
+          .filter(location => location.latitude && location.longitude);
 
-      setEmployeeLocations(locations);
+        setEmployeeLocations(locations);
 
-      if (locations.length > 0 && accessToken) {
-        await initializeMap(locations);
+        if (locations.length > 0 && accessToken) {
+          await initializeMap(locations);
+        } else {
+          setMapError("No employee locations available");
+        }
       } else {
-        setMapError("No employee locations available");
+        const employeesResponse = await axios.get(`${API_BASE_URL}/employee/getAll`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const locationPromises = employeesResponse.data.map((employee: any) =>
+          axios.get(`${API_BASE_URL}/employee/getLiveLocation?id=${employee.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }).catch(error => {
+            console.log(`No live location for employee ${employee.id}`);
+            return null;
+          })
+        );
+
+        const locationResponses = await Promise.all(locationPromises);
+        const locations = locationResponses
+          .filter((response): response is AxiosResponse<EmployeeLocation> => response !== null && response.data)
+          .map((response) => response.data)
+          .filter(location => location.latitude && location.longitude);
+
+        setEmployeeLocations(locations);
+
+        if (locations.length > 0 && accessToken) {
+          await initializeMap(locations);
+        } else {
+          setMapError("No employee locations available");
+        }
       }
     } catch (error) {
       console.error('Error fetching employee locations:', error);
@@ -333,7 +373,33 @@ const Dashboard: React.FC = () => {
     } finally {
       setIsMapLoading(false);
     }
-  }, [token, accessToken]);
+  }, [token, accessToken, role, teamMembers]);
+
+  const fetchLatestVisit = useCallback(async (employeeName: string) => {
+    const today = new Date();
+    const startDate = today.getDate() <= 7 ? format(subDays(today, today.getDate() + 23), 'yyyy-MM-dd') : format(subDays(today, 30), 'yyyy-MM-dd');
+    const endDate = format(today, 'yyyy-MM-dd');
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/visit/getByDateSorted`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          startDate: startDate,
+          endDate: endDate,
+          page: 0,
+          size: 1,
+          sort: 'visitDate,desc',
+          employeeName: employeeName
+        }
+      });
+
+      const visitData = response.data.content[0];
+      return visitData;
+    } catch (error) {
+      console.error('Error fetching latest visit:', error);
+      return null;
+    }
+  }, [token]);
 
   const initializeMap = useCallback(async (locations: EmployeeLocation[]) => {
     if (mapContainer.current && accessToken) {
@@ -382,12 +448,53 @@ const Dashboard: React.FC = () => {
               .setLngLat([location.longitude, location.latitude])
               .addTo(map.current!);
 
+            const employee = employeeInfo.find(emp => emp.id === location.empId);
+            const employeeCity = employee ? employee.city : 'Unknown';
+            const updatedTime = new Date(`${location.updatedAt}T${location.updatedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
             const popup = new Popup({ offset: 25 }).setHTML(
-              `<strong>${location.empName}</strong><br>
-              Last updated: ${location.updatedAt} ${location.updatedTime}`
+              `<div style="
+                font-family: 'Poppins', sans-serif;
+                padding: 12px;
+                max-width: 300px;">
+                <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
+                  ${location.empName}
+                </div>
+                <div style="font-size: 1em; color: #555;">
+                  <p><strong>City:</strong> ${employeeCity}</p>
+                  <p><strong>Last updated:</strong> ${location.updatedAt} ${updatedTime}</p>
+                </div>
+              </div>`
             );
 
             marker.setPopup(popup);
+
+            marker.getElement().addEventListener('mouseenter', async () => {
+              const latestVisit = await fetchLatestVisit(location.empName);
+              const visitTime = latestVisit && latestVisit.checkinTime ? new Date(`${latestVisit.visit_date}T${latestVisit.checkinTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
+              const popupContent = `
+                <div style="
+                  font-family: 'Poppins', sans-serif;
+                  padding: 12px;
+                  max-width: 300px;">
+                  <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
+                    ${location.empName}
+                  </div>
+                  <div style="font-size: 1em; color: #555;">
+                    <p><strong>City:</strong> ${employeeCity}</p>
+                    <p><strong>Last updated:</strong> ${location.updatedAt} ${updatedTime}</p>
+                    ${latestVisit ? `
+                      <div style="background-color: #f9f9f9; padding: 8px; border-radius: 6px; margin-top: 8px;">
+                        <p><strong>Latest Visit:</strong> ${latestVisit.storeName}</p>
+                        <p><strong>Time:</strong> ${visitTime}</p>
+                      </div>
+                    ` : '<p>No recent visits</p>'}
+                  </div>
+                </div>
+              `;
+              marker.setPopup(new Popup({ offset: 25 }).setHTML(popupContent));
+              marker.togglePopup();
+            });
           });
 
           // Fit map to show all markers
@@ -408,7 +515,17 @@ const Dashboard: React.FC = () => {
         setMapError("Failed to initialize map");
       }
     }
-  }, [accessToken]);
+  }, [accessToken, fetchLatestVisit, employeeInfo]);
+
+  const handleEmployeeLocationClick = useCallback((location: EmployeeLocation) => {
+    if (map.current) {
+      map.current.flyTo({
+        center: [location.longitude, location.latitude],
+        zoom: 14,
+        essential: true,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (token && username && !role) {
@@ -483,7 +600,7 @@ const Dashboard: React.FC = () => {
           key={employeeName}
           employeeName={employeeName.charAt(0).toUpperCase() + employeeName.slice(1)}
           totalVisits={employeeData.completedVisitCount}
-          onClick={() => handleEmployeeClick(employeeName, employeeData.employeeId)}
+          onClick={() => handleEmployeeClick(employeeName)}
         />
       );
     });
@@ -547,24 +664,27 @@ const Dashboard: React.FC = () => {
               stateCards.length > 0 ? stateCards : <p>No states with active employees in this date range.</p>
             )}
           </div>
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>Live Employee Locations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isMapLoading ? (
-                <div className="flex justify-center items-center h-[600px]">
-                  <ClipLoader color="#4A90E2" size={50} />
-                </div>
-              ) : employeeLocations.length > 0 ? (
-                <div ref={mapContainer} style={{ width: '100%', height: '600px' }} />
-              ) : (
-                <div className="flex justify-center items-center h-[600px]">
-                  <p>No live location data available</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4">Live Employee Locations</h2>
+            {isMapLoading ? (
+              <div className="flex justify-center items-center h-[600px]">
+                <ClipLoader color="#4A90E2" size={50} />
+              </div>
+            ) : (
+              <>
+                {employeeLocations.length > 0 ? (
+                  <>
+                    <div ref={mapContainer} className="rounded-lg border-2 border-gray-300 shadow-lg" style={{ width: '100%', height: '600px' }} />
+                    <EmployeeLocationList employeeLocations={employeeLocations} onEmployeeClick={handleEmployeeLocationClick} />
+                  </>
+                ) : (
+                  <div className="flex justify-center items-center h-[600px]">
+                    <p>No live location data available</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </>
       )}
     </div>
