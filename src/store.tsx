@@ -14,8 +14,8 @@ interface AuthState {
   lastName: null | string;
   teamId: null | number;
   officeManagerId: number | null;
-  teamMembers: any[]; // Add this line to store team members
-  isModalOpen: boolean; // Add this line
+  teamMembers: any[];
+  isModalOpen: boolean;
 }
 
 interface LoginResponse {
@@ -37,7 +37,6 @@ interface TeamInfo {
     id: number;
     firstName: string;
     lastName: string;
-    // ... other properties
   };
   fieldOfficers: any[];
 }
@@ -53,7 +52,6 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
   async ({ username, password }, { rejectWithValue, dispatch }) => {
     try {
       const response = await api.post('/user/token', { username, password });
-
       if (response.data === 'Bad credentials') {
         return rejectWithValue('Invalid username or password');
       }
@@ -71,7 +69,7 @@ export const loginUser = createAsyncThunk<LoginResponse, { username: string; pas
         await dispatch(fetchTeamInfo());
       }
 
-      await dispatch(checkDailyPricing());
+      await dispatch(checkDailyPricing(role));  // Pass role to checkDailyPricing
 
       return { role, token };
     } catch (error: any) {
@@ -109,15 +107,15 @@ export const fetchTeamInfo = createAsyncThunk<TeamInfo | null, void, { rejectVal
   }
 );
 
-export const checkDailyPricing = createAsyncThunk<void, void, { rejectValue: string }>(
+export const checkDailyPricing = createAsyncThunk<void, string, { rejectValue: string }>(
   'auth/checkDailyPricing',
-  async (_, { rejectWithValue, dispatch }) => {
+  async (role, { rejectWithValue, dispatch }) => {
     const today = new Date().toISOString().split('T')[0];
     const url = `/brand/getByDateRange?start=${today}&end=${today}`;
     try {
       const response = await api.get(url);
       const isPricingCreated = response.data.some((item: any) => item.brandName === 'Gajkesari');
-      if (!isPricingCreated) {
+      if (!isPricingCreated && role === 'ADMIN') {
         dispatch(setModalOpen(true));
       }
     } catch (error: any) {
@@ -155,7 +153,7 @@ const initialState: AuthState = {
   lastName: null,
   teamId: null,
   officeManagerId: null,
-  teamMembers: [], // Initialize it here
+  teamMembers: [],
   isModalOpen: false,
 };
 

@@ -25,7 +25,7 @@ const formatDateTime = (date: string, time: string) => {
         day: '2-digit',
         hour: 'numeric',
         minute: 'numeric',
-        hour12: true
+        hour12: true,
     };
     return dateTime.toLocaleString('en-US', options);
 };

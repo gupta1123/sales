@@ -5,10 +5,11 @@ import { useSelector } from 'react-redux';
 import Salary from './Salary';
 import Allowance from './Allowance';
 import WorkingDays from './WorkingDays';
-import Teams from './Teams'; // Import the Teams component
+import Teams from './Teams';
+import TargetComponent from '@/components/Target';
 import { RootState } from '../store';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import styles from './Settings.module.css';
+import { Button } from '@/components/ui/button';
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState('salary');
@@ -23,37 +24,45 @@ export default function Settings() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="mb-4 flex items-center space-x-4">
-                        <button
-                            className={`${styles.tabButton} ${activeTab === 'salary' ? styles.activeTab : ''}`}
+                    <div className="mb-4 flex items-center space-x-4 flex-wrap">
+                        <Button
+                            variant={activeTab === 'salary' ? 'default' : 'ghost'}
                             onClick={() => setActiveTab('salary')}
                         >
                             Salary
-                        </button>
-                        <button
-                            className={`${styles.tabButton} ${activeTab === 'allowance' ? styles.activeTab : ''}`}
+                        </Button>
+                        <Button
+                            variant={activeTab === 'allowance' ? 'default' : 'ghost'}
                             onClick={() => setActiveTab('allowance')}
                         >
                             Allowance
-                        </button>
-                        <button
-                            className={`${styles.tabButton} ${activeTab === 'workingDays' ? styles.activeTab : ''}`}
+                        </Button>
+                        <Button
+                            variant={activeTab === 'workingDays' ? 'default' : 'ghost'}
                             onClick={() => setActiveTab('workingDays')}
                         >
                             Working Days
-                        </button>
-                        <button
-                            className={`${styles.tabButton} ${activeTab === 'team' ? styles.activeTab : ''}`}
+                        </Button>
+                        <Button
+                            variant={activeTab === 'team' ? 'default' : 'ghost'}
                             onClick={() => setActiveTab('team')}
                         >
                             Team
-                        </button>
+                        </Button>
+                        <Button
+                            variant={activeTab === 'target' ? 'default' : 'ghost'}
+                            onClick={() => setActiveTab('target')}
+                        >
+                            Target
+                        </Button>
+
                     </div>
-                    <div className={styles.tabContent}>
+                    <div className="mt-6">
                         {activeTab === 'salary' && <Salary authToken={authToken} />}
                         {activeTab === 'allowance' && <Allowance authToken={authToken} />}
                         {activeTab === 'workingDays' && <WorkingDays authToken={authToken} />}
-                        {activeTab === 'team' && <Teams authToken={authToken} />} {/* Add the Teams component */}
+                        {activeTab === 'team' && <Teams authToken={authToken} />}
+                        {activeTab === 'target' && <TargetComponent />}
                     </div>
                 </CardContent>
             </Card>

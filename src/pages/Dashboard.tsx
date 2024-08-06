@@ -18,7 +18,6 @@ import axios, { AxiosResponse } from 'axios';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import EmployeeLocationList from './EmployeeLocationList';
 
-
 const API_BASE_URL = 'http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081';
 const MAP_STYLE_URL = 'https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json';
 const OLA_CLIENT_ID = '7ba2810b-f481-4e31-a0c6-d436b0c7c1eb';
@@ -449,23 +448,29 @@ const Dashboard: React.FC = () => {
               .addTo(map.current!);
 
             const employee = employeeInfo.find(emp => emp.id === location.empId);
-            const employeeCity = employee ? employee.city : 'Unknown';
+            // const employeeCity = employee ? employee.city : 'Unknown';
             const updatedTime = new Date(`${location.updatedAt}T${location.updatedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-            const popup = new Popup({ offset: 25 }).setHTML(
-              `<div style="
+            const popupContent = `
+              <div style="
                 font-family: 'Poppins', sans-serif;
                 padding: 12px;
-                max-width: 300px;">
+                max-width: 300px;
+                background-color: #f8f9fa;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+                border: 2px solid #4A90E2;">
                 <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
                   ${location.empName}
                 </div>
                 <div style="font-size: 1em; color: #555;">
-                  <p><strong>City:</strong> ${employeeCity}</p>
-                  <p><strong>Last updated:</strong> ${location.updatedAt} ${updatedTime}</p>
+                
+                  <p><strong>Last updated:</strong> <span style="color: #4A90E2;">${location.updatedAt} ${updatedTime}</span></p>
                 </div>
-              </div>`
-            );
+              </div>
+            `;
+
+            const popup = new Popup({ offset: 25 }).setHTML(popupContent);
 
             marker.setPopup(popup);
 
@@ -476,15 +481,19 @@ const Dashboard: React.FC = () => {
                 <div style="
                   font-family: 'Poppins', sans-serif;
                   padding: 12px;
-                  max-width: 300px;">
+                  max-width: 300px;
+                  background-color: #f8f9fa;
+                  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                  border-radius: 8px;
+                  border: 2px solid #4A90E2;">
                   <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
                     ${location.empName}
                   </div>
                   <div style="font-size: 1em; color: #555;">
-                    <p><strong>City:</strong> ${employeeCity}</p>
-                    <p><strong>Last updated:</strong> ${location.updatedAt} ${updatedTime}</p>
+                  
+                    <p><strong>Last updated:</strong> <span style="color: #4A90E2;">${location.updatedAt} ${updatedTime}</span></p>
                     ${latestVisit ? `
-                      <div style="background-color: #f9f9f9; padding: 8px; border-radius: 6px; margin-top: 8px;">
+                      <div style="background-color: #d1ecf1; padding: 8px; border-radius: 6px; margin-top: 8px;">
                         <p><strong>Latest Visit:</strong> ${latestVisit.storeName}</p>
                         <p><strong>Time:</strong> ${visitTime}</p>
                       </div>
