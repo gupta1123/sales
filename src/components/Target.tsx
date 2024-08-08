@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Check, Target as TargetIcon } from 'lucide-react';
+import { Check, Target as TargetIcon, AlertCircle } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDebounce } from 'use-debounce';
 
 interface Employee {
     id: number;
@@ -33,6 +35,7 @@ interface EmployeeTarget {
 }
 
 interface CityData {
+    id: number;
     target: number;
     achievement: number;
     employees: Employee[];
@@ -49,12 +52,31 @@ const TargetComponent: React.FC = () => {
     const [selectedCity, setSelectedCity] = useState<string>("all");
     const [monthData, setMonthData] = useState<MonthData>({});
     const authToken = useSelector((state: RootState) => state.auth.token);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [targetInputs, setTargetInputs] = useState<{ [city: string]: number }>({});
+    const [debouncedTargetInputs] = useDebounce(targetInputs, 1000);
+    const [contributionInputs, setContributionInputs] = useState<{ [key: string]: number }>({});
+    const [debouncedContributionInputs] = useDebounce(contributionInputs, 1000);
 
     useEffect(() => {
         fetchTargets();
     }, [authToken, selectedMonth, selectedYear]);
 
+    useEffect(() => {
+        Object.entries(debouncedTargetInputs).forEach(([city, value]) => {
+            handleTargetChange(city, value);
+        });
+    }, [debouncedTargetInputs]);
+
+    useEffect(() => {
+        Object.entries(debouncedContributionInputs).forEach(([key, value]) => {
+            const [city, employeeId] = key.split('|');
+            handleContributionChange(city, Number(employeeId), value);
+        });
+    }, [debouncedContributionInputs]);
+
     const fetchTargets = async () => {
+        setIsLoading(true);
         try {
             const response = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/target/getByMonthYear?month=${selectedMonth}&year=${selectedYear}`, {
                 headers: {
@@ -68,6 +90,8 @@ const TargetComponent: React.FC = () => {
             await organizeDataByCity(data);
         } catch (error) {
             console.error('Error fetching targets:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -100,18 +124,17 @@ const TargetComponent: React.FC = () => {
                 firstName: empTarget.employeeName.split(' ')[0],
                 lastName: empTarget.employeeName.split(' ')[1] || '',
                 city: cityName,
-                role: 'Field Officer', // Assuming role here, modify as needed
+                role: 'Field Officer',
                 contribution: empTarget.achievedValue,
                 employeeTargetId: empTarget.id
             }));
 
-            if (cityEmployees.length > 0) {
-                cityData[cityName] = {
-                    target: target.targetValue,
-                    achievement: target.totalAchievements,
-                    employees: cityEmployees
-                };
-            }
+            cityData[cityName] = {
+                id: target.id,
+                target: target.targetValue,
+                achievement: target.totalAchievements,
+                employees: cityEmployees
+            };
         }
 
         setMonthData(cityData);
@@ -131,10 +154,14 @@ const TargetComponent: React.FC = () => {
         setSelectedCity(value);
     };
 
+    const handleTargetInputChange = (city: string, value: number) => {
+        setTargetInputs(prev => ({ ...prev, [city]: value }));
+    };
+
     const handleTargetChange = async (city: string, newValue: number) => {
         try {
-            const cityTarget = monthData[city].employees[0]?.employeeTargetId;
-            if (!cityTarget) return;
+            const cityTargetId = monthData[city]?.id;
+            if (!cityTargetId) return;
 
             const response = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/target/edit', {
                 method: 'PUT',
@@ -143,7 +170,7 @@ const TargetComponent: React.FC = () => {
                     'Authorization': `Bearer ${authToken}`
                 },
                 body: JSON.stringify({
-                    id: cityTarget,
+                    id: cityTargetId,
                     targetValue: newValue
                 })
             });
@@ -162,6 +189,10 @@ const TargetComponent: React.FC = () => {
         } catch (error) {
             console.error('Error updating target:', error);
         }
+    };
+
+    const handleContributionInputChange = (city: string, employeeId: number, value: number) => {
+        setContributionInputs(prev => ({ ...prev, [`${city}|${employeeId}`]: value }));
     };
 
     const handleContributionChange = async (city: string, employeeId: number, newValue: number) => {
@@ -252,56 +283,75 @@ const TargetComponent: React.FC = () => {
                 </div>
             </div>
             <div id="months-container">
-                {Object.entries(monthData).sort(([a], [b]) => a.localeCompare(b)).map(([city, details]) => (
-                    (selectedCity === 'all' || selectedCity === city) && details.employees.length > 0 && (
-                        <Card key={city} className="mb-4">
-                            <CardContent className="p-4">
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
-                                    <h3 className="text-lg font-semibold mb-2 sm:mb-0">{city}</h3>
-                                    <div className="flex flex-col sm:flex-row sm:space-x-4">
-                                        <span className="flex items-center mb-2 sm:mb-0">
-                                            <TargetIcon className="w-4 h-4 mr-1 text-blue-500" />
-                                            Target:
-                                            <Input
-                                                type="number"
-                                                value={details.target}
-                                                onChange={(e) => handleTargetChange(city, Number(e.target.value))}
-                                                className="w-20 ml-1 p-1 text-sm"
-                                            />
-                                        </span>
-                                        <span className="flex items-center">
-                                            <Check className="w-4 h-4 mr-1 text-green-500" />
-                                            Achievement: {details.achievement}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                                    {details.employees.map((employee) => (
-                                        <div key={employee.id} className="bg-gray-50 p-3 rounded-md shadow-sm flex flex-col">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <div className="flex items-center">
-                                                    <div className={`avatar ${getRandomColor()} mr-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold`}>
-                                                        {getInitials(`${employee.firstName} ${employee.lastName}`)}
-                                                    </div>
-                                                    <span className="font-medium text-sm">{`${employee.firstName} ${employee.lastName}`}</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center">
-                                                <span className="text-xs text-gray-500 mr-2">Contribution:</span>
+                {isLoading ? (
+                    <Card className="mb-4">
+                        <CardContent className="p-4">
+                            <Skeleton className="h-6 w-1/4 mb-4" />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                {[...Array(4)].map((_, index) => (
+                                    <Skeleton key={index} className="h-24 w-full" />
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    Object.entries(monthData).sort(([a], [b]) => a.localeCompare(b)).map(([city, details]) => (
+                        (selectedCity === 'all' || selectedCity === city) && (
+                            <Card key={city} className="mb-4">
+                                <CardContent className="p-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
+                                        <h3 className="text-lg font-semibold mb-2 sm:mb-0">{city}</h3>
+                                        <div className="flex flex-col sm:flex-row sm:space-x-4">
+                                            <span className="flex items-center mb-2 sm:mb-0">
+                                                <TargetIcon className="w-4 h-4 mr-1 text-blue-500" />
+                                                Target:
                                                 <Input
                                                     type="number"
-                                                    value={employee.contribution}
-                                                    onChange={(e) => handleContributionChange(city, employee.id, Number(e.target.value))}
-                                                    className="w-full text-sm"
+                                                    value={targetInputs[city] ?? details.target}
+                                                    onChange={(e) => handleTargetInputChange(city, Number(e.target.value))}
+                                                    onBlur={() => handleTargetChange(city, targetInputs[city] ?? details.target)}
+                                                    className="w-20 ml-1 p-1 text-sm"
                                                 />
-                                            </div>
+                                            </span>
+                                            <span className="flex items-center mb-2 sm:mb-0">
+                                                <Check className="w-4 h-4 mr-1 text-green-500" />
+                                                Achievement: {details.achievement}
+                                            </span>
+                                            <span className="flex items-center">
+                                                <AlertCircle className="w-4 h-4 mr-1 text-yellow-500" />
+                                                Pending: {details.target - details.achievement}
+                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )
-                ))}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                        {details.employees.map((employee) => (
+                                            <div key={employee.id} className="bg-gray-50 p-3 rounded-md shadow-sm flex flex-col">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex items-center">
+                                                        <div className={`avatar ${getRandomColor()} mr-2 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold`}>
+                                                            {getInitials(`${employee.firstName} ${employee.lastName}`)}
+                                                        </div>
+                                                        <span className="font-medium text-sm">{`${employee.firstName} ${employee.lastName}`}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <span className="text-xs text-gray-500 mr-2">Contribution:</span>
+                                                    <Input
+                                                        type="number"
+                                                        value={contributionInputs[`${city}|${employee.id}`] ?? employee.contribution}
+                                                        onChange={(e) => handleContributionInputChange(city, employee.id, Number(e.target.value))}
+                                                        onBlur={() => handleContributionChange(city, employee.id, contributionInputs[`${city}|${employee.id}`] ?? employee.contribution ?? 0)}
+                                                        className="w-full text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    ))
+                )}
             </div>
         </div>
     );

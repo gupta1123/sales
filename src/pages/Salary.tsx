@@ -47,6 +47,7 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [isCalculating, setIsCalculating] = useState<{ [key: number]: boolean }>({});
     const [travelAllowanceRates, setTravelAllowanceRates] = useState<{ [key: number]: { carRate: number, bikeRate: number } }>({});
+    const [employeeData, setEmployeeData] = useState<{ [key: number]: any }>({});
     const rowsPerPage = 10;
 
     const months = [
@@ -68,6 +69,21 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         const year = currentYear + index;
         return { value: year.toString(), label: year.toString() };
     });
+
+    const fetchEmployeeData = useCallback(async () => {
+        try {
+            const response = await axios.get('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/employee/getAll', {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            const employeeMap = response.data.reduce((acc: any, emp: any) => {
+                acc[emp.id] = emp;
+                return acc;
+            }, {});
+            setEmployeeData(employeeMap);
+        } catch (error) {
+            console.error('Error fetching employee data:', error);
+        }
+    }, [authToken]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -114,6 +130,10 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             console.error('Error fetching travel allowance data:', error);
         }
     }, [selectedYear, selectedMonth, authToken]);
+
+    useEffect(() => {
+        fetchEmployeeData();
+    }, [fetchEmployeeData]);
 
     useEffect(() => {
         if (selectedYear && selectedMonth) {
@@ -169,21 +189,47 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         return sundays;
     };
 
-    const calculateBaseSalary = (fullMonthSalary: number, totalDaysWorked: number, totalDaysInMonth: number, sundays: number) => {
+    const calculateBaseSalary = (fullMonthSalary: number, totalDaysWorked: number, totalDaysInMonth: number) => {
         const perDaySalary = fullMonthSalary / totalDaysInMonth;
-        const sundaySalary = perDaySalary * sundays;
-        const baseSalary = perDaySalary * totalDaysWorked + sundaySalary;
+        const baseSalary = Math.round(perDaySalary * totalDaysWorked);
         return baseSalary;
     };
 
+    const calculateTravelAllowance = (carDistance: number, bikeDistance: number, carRate: number, bikeRate: number) => {
+        const carAllowance = Math.round(carDistance * carRate);
+        const bikeAllowance = Math.round(bikeDistance * bikeRate);
+        return carAllowance + bikeAllowance;
+    };
+
     const calculateTotalSalary = (row: any, year: number, month: number) => {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1;
+        const currentDate = today.getDate();
+
+        const isCurrentMonth = year === currentYear && month === currentMonth;
+        const lastDayToConsider = isCurrentMonth ? currentDate - 1 : getDaysInMonth(year, month);
+
         const totalDaysInMonth = getDaysInMonth(year, month);
-        const sundays = countSundaysInMonth(year, month);
-        const totalDaysWorked = row.fullDays * 1 + row.halfDays * 0.5;
-        const baseSalary = calculateBaseSalary(row.salary || 0, totalDaysWorked, totalDaysInMonth, sundays);
-        const travelAllowance = calculateTravelAllowance(row.employeeId);
-        const dearnessAllowance = row.dearnessAllowance || 0;
-        const totalSalary = baseSalary + travelAllowance + dearnessAllowance + (row.statsDto.approvedExpense || 0);
+        const totalDaysWorked = Math.min(row.fullDays + row.halfDays * 0.5, lastDayToConsider);
+
+        const baseSalary = calculateBaseSalary(row.salary || 0, totalDaysWorked, totalDaysInMonth);
+
+        const travelAllowance = calculateTravelAllowance(
+            row.distanceTravelledByCar || 0,
+            row.distanceTravelledByBike || 0,
+            row.pricePerKmCar || 0,
+            row.pricePerKmBike || 0
+        );
+
+        // Calculate DA based on full days and half days
+        const employeeInfo = employeeData[row.employeeId] || {};
+        const dailyDA = employeeInfo.dearnessAllowance || 0;
+        const daForFullDays = dailyDA * row.fullDays;
+        const daForHalfDays = (dailyDA / 2) * row.halfDays;
+        const totalDA = Math.min(daForFullDays + daForHalfDays, dailyDA * lastDayToConsider);
+
+        const totalSalary = baseSalary + travelAllowance + totalDA + (row.statsDto?.approvedExpense || 0);
         return Math.round(totalSalary);
     };
 
@@ -193,20 +239,6 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         return employeeData.dateDetails.filter((detail: any) =>
             detail.checkoutCount > 0 && detail.totalDistanceTravelled === 0
         ).length;
-    };
-
-    const calculateTravelAllowance = (employeeId: number) => {
-        const employeeData = data.find(employee => employee.employeeId === employeeId);
-        if (!employeeData) return 0;
-
-        const carDistance = employeeData.distanceTravelledByCar || 0;
-        const bikeDistance = employeeData.distanceTravelledByBike || 0;
-        const carRate = employeeData.pricePerKmCar || 0;
-        const bikeRate = employeeData.pricePerKmBike || 0;
-
-        const carAllowance = carDistance * carRate;
-        const bikeAllowance = bikeDistance * bikeRate;
-        return Math.round(carAllowance + bikeAllowance);
     };
 
     const calculateDistances = async (employeeId: number) => {
@@ -392,6 +424,8 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                 <TableHead>TA</TableHead>
                                 <TableHead>DA</TableHead>
                                 <TableHead>Expense</TableHead>
+                                <TableHead>Car Distance (km)</TableHead>
+                                <TableHead>Bike Distance (km)</TableHead>
                                 <TableHead>Total Salary</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -406,14 +440,16 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                                     <TooltipTrigger>
                                                         <ExclamationTriangleIcon className={styles.warningIcon} />
                                                     </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        {getAnomalyCount(row.employeeId)} day(s) with checkout but no distance traveled
+                                                    <TooltipContent className={styles.customTooltip}>
+                                                        <div>
+                                                            {getAnomalyCount(row.employeeId)} day(s) with checkout but no distance traveled
+                                                        </div>
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() => calculateDistances(row.employeeId)}
                                                             disabled={isCalculating[row.employeeId]}
-                                                            className="ml-2"
+                                                            className={`mt-2 ${styles.tooltipButton}`}
                                                         >
                                                             {isCalculating[row.employeeId] ? 'Calculating...' : 'Calculate Distance'}
                                                         </Button>
@@ -421,13 +457,18 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                                                 </Tooltip>
                                             </TooltipProvider>
                                         )}
-                                    </TableCell>
+</TableCell>
                                     <TableCell>{row.fullDays}</TableCell>
                                     <TableCell>{row.halfDays}</TableCell>
-                                    <TableCell>{Math.round(calculateBaseSalary(row.salary || 0, (row.fullDays * 1 + row.halfDays * 0.5), getDaysInMonth(Number(selectedYear), Number(selectedMonth)), countSundaysInMonth(Number(selectedYear), Number(selectedMonth))))}</TableCell>
-                                    <TableCell>{calculateTravelAllowance(row.employeeId)}</TableCell>
-                                    <TableCell>{Math.round(row.dearnessAllowance || 0)}</TableCell>
+                                    <TableCell>{Math.round(calculateBaseSalary(row.salary || 0, (row.fullDays + row.halfDays * 0.5), getDaysInMonth(Number(selectedYear), Number(selectedMonth))))}</TableCell>
+                                    <TableCell>{Math.round(calculateTravelAllowance(row.distanceTravelledByCar || 0, row.distanceTravelledByBike || 0, row.pricePerKmCar || 0, row.pricePerKmBike || 0))}</TableCell>
+                                    <TableCell>
+                                        {Math.round(((employeeData[row.employeeId]?.dearnessAllowance || 0) * row.fullDays) +
+                                            ((employeeData[row.employeeId]?.dearnessAllowance || 0) / 2 * row.halfDays))}
+                                    </TableCell>
                                     <TableCell>{Math.round(row.statsDto?.approvedExpense || 0)}</TableCell>
+                                    <TableCell>{Math.round(row.distanceTravelledByCar || 0)}</TableCell>
+                                    <TableCell>{Math.round(row.distanceTravelledByBike || 0)}</TableCell>
                                     <TableCell>{calculateTotalSalary(row, Number(selectedYear), Number(selectedMonth))}</TableCell>
                                 </TableRow>
                             ))}
@@ -465,4 +506,4 @@ const Salary: React.FC<{ authToken: string | null }> = ({ authToken }) => {
     );
 };
 
-export default Salary;
+export default Salary;  

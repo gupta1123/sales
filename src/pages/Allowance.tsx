@@ -17,6 +17,8 @@ import {
     PaginationNext,
 } from "@/components/ui/pagination";
 import { notification } from 'antd';
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import styles from './Allowance.module.css';
 
 const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
@@ -24,8 +26,8 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
     const [editMode, setEditMode] = useState<{ [key: number]: boolean }>({});
     const [editedData, setEditedData] = useState<{ [key: number]: any }>({});
     const [currentPage, setCurrentPage] = useState<number>(1);
-    const [travelRates, setTravelRates] = useState<{ [key: number]: { carRatePerKm: number, bikeRatePerKm: number } }>({});
-    const [editedTravelRates, setEditedTravelRates] = useState<{ [key: number]: { carRatePerKm: number, bikeRatePerKm: number } }>({});
+    const [travelRates, setTravelRates] = useState<Array<{ id: number, employeeId: number, carRatePerKm: number, bikeRatePerKm: number }>>([]);
+    const [editedTravelRates, setEditedTravelRates] = useState<{ [key: number]: { carRatePerKm: number, bikeRatePerKm: number } | undefined }>({});
     const rowsPerPage = 10;
 
     const fetchEmployees = useCallback(async () => {
@@ -36,7 +38,9 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                 },
             });
             const data = await response.json();
-            setEmployees(data);
+            // Sort employees by first name (or any other field)
+            const sortedData = data.sort((a: any, b: any) => a.firstName.localeCompare(b.firstName));
+            setEmployees(sortedData);
         } catch (error) {
             console.error('Error fetching employees:', error);
         }
@@ -49,15 +53,11 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                     'Authorization': `Bearer ${authToken}`,
                 },
             });
+            if (!response.ok) {
+                throw new Error('Failed to fetch travel rates');
+            }
             const data = await response.json();
-            const ratesMap = data.reduce((acc: any, rate: any) => {
-                acc[rate.employeeId] = {
-                    carRatePerKm: rate.carRatePerKm,
-                    bikeRatePerKm: rate.bikeRatePerKm
-                };
-                return acc;
-            }, {});
-            setTravelRates(ratesMap);
+            setTravelRates(data);
         } catch (error) {
             console.error('Error fetching travel rates:', error);
         }
@@ -78,16 +78,13 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         }));
 
         if (field === 'carRatePerKm' || field === 'bikeRatePerKm') {
-            setEditedTravelRates(prevRates => {
-                const previousRate = prevRates[employeeId] || { carRatePerKm: 0, bikeRatePerKm: 0 }; // Default values to avoid undefined
-                return {
-                    ...prevRates,
-                    [employeeId]: {
-                        ...previousRate,
-                        [field]: parseFloat(value)
-                    }
-                };
-            });
+            setEditedTravelRates(prevRates => ({
+                ...prevRates,
+                [employeeId]: {
+                    ...prevRates[employeeId],
+                    [field]: parseFloat(value) || 0
+                } as { carRatePerKm: number; bikeRatePerKm: number }
+            }));
         }
     };
 
@@ -112,21 +109,27 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
             });
 
             if (travelRate) {
-                const travelRateResponse = await fetch('http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/travel-rates/create', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        employeeId: employeeId,
-                        carRatePerKm: travelRate.carRatePerKm,
-                        bikeRatePerKm: travelRate.bikeRatePerKm
-                    }),
-                });
+                // Find the correct travel rate id for the employee
+                const travelRateEntry = travelRates.find(rate => rate.employeeId === employeeId);
 
-                if (!travelRateResponse.ok) {
-                    throw new Error('Failed to update travel rates');
+                if (travelRateEntry) {
+                    const travelRateResponse = await fetch(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/travel-rates/edit?id=${travelRateEntry.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            bikeRatePerKm: travelRate.bikeRatePerKm,
+                            carRatePerKm: travelRate.carRatePerKm
+                        }),
+                    });
+
+                    if (!travelRateResponse.ok) {
+                        throw new Error('Failed to update travel rates');
+                    }
+                } else {
+                    console.error('Travel rate entry not found for employee:', employeeId);
                 }
             }
 
@@ -169,7 +172,7 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         }));
         setEditedTravelRates(prevRates => ({
             ...prevRates,
-            [employeeId]: travelRates[employeeId] || { carRatePerKm: 0, bikeRatePerKm: 0 }
+            [employeeId]: travelRates.find(rate => rate.employeeId === employeeId) || { carRatePerKm: 0, bikeRatePerKm: 0 }
         }));
     };
 
@@ -190,25 +193,23 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
         });
     };
 
-
     const indexOfLastRow = currentPage * rowsPerPage;
     const indexOfFirstRow = indexOfLastRow - rowsPerPage;
     const currentRows = employees.slice(indexOfFirstRow, indexOfLastRow);
     const totalPages = Math.ceil(employees.length / rowsPerPage);
 
     return (
-        <div className={styles.allowanceContainer}>
-            <h2>Allowance Details</h2>
+        <Card className={styles.allowanceContainer}>
+            <h2 className="text-2xl font-bold mb-4">Allowance Details</h2>
             <Table className={styles.table}>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Employee</TableHead>
-                        <TableHead>TA</TableHead>
-                        <TableHead>DA</TableHead>
-                        <TableHead>Salary</TableHead>
-                        <TableHead>Car Rate (per km)</TableHead>
-                        <TableHead>Bike Rate (per km)</TableHead>
-                        <TableHead>Action</TableHead>
+                        <TableHead className="w-1/5">Employee</TableHead>
+                        <TableHead className="w-1/5">DA</TableHead>
+                        <TableHead className="w-1/5">Salary</TableHead>
+                        <TableHead className="w-1/5">Car Rate (per km)</TableHead>
+                        <TableHead className="w-1/5">Bike Rate (per km)</TableHead>
+                        <TableHead className="w-1/5">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -217,21 +218,11 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                             <TableCell>{employee.firstName} {employee.lastName}</TableCell>
                             <TableCell>
                                 {editMode[employee.id] ? (
-                                    <input
-                                        type="number"
-                                        value={editedData[employee.id]?.travelAllowance || employee.travelAllowance}
-                                        onChange={(e) => handleInputChange(employee.id, 'travelAllowance', e.target.value)}
-                                    />
-                                ) : (
-                                    employee.travelAllowance
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                {editMode[employee.id] ? (
-                                    <input
+                                    <Input
                                         type="number"
                                         value={editedData[employee.id]?.dearnessAllowance || employee.dearnessAllowance}
                                         onChange={(e) => handleInputChange(employee.id, 'dearnessAllowance', e.target.value)}
+                                        className="w-full"
                                     />
                                 ) : (
                                     employee.dearnessAllowance
@@ -239,10 +230,11 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                             </TableCell>
                             <TableCell>
                                 {editMode[employee.id] ? (
-                                    <input
+                                    <Input
                                         type="number"
                                         value={editedData[employee.id]?.fullMonthSalary || employee.fullMonthSalary}
                                         onChange={(e) => handleInputChange(employee.id, 'fullMonthSalary', e.target.value)}
+                                        className="w-full"
                                     />
                                 ) : (
                                     employee.fullMonthSalary
@@ -250,34 +242,36 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                             </TableCell>
                             <TableCell>
                                 {editMode[employee.id] ? (
-                                    <input
+                                    <Input
                                         type="number"
-                                        value={editedTravelRates[employee.id]?.carRatePerKm || travelRates[employee.id]?.carRatePerKm || 0}
+                                        value={editedTravelRates[employee.id]?.carRatePerKm || travelRates.find(rate => rate.employeeId === employee.id)?.carRatePerKm || 0}
                                         onChange={(e) => handleInputChange(employee.id, 'carRatePerKm', e.target.value)}
+                                        className="w-full"
                                     />
                                 ) : (
-                                    travelRates[employee.id]?.carRatePerKm || 0
+                                    travelRates.find(rate => rate.employeeId === employee.id)?.carRatePerKm || 0
                                 )}
                             </TableCell>
                             <TableCell>
                                 {editMode[employee.id] ? (
-                                    <input
+                                    <Input
                                         type="number"
-                                        value={editedTravelRates[employee.id]?.bikeRatePerKm || travelRates[employee.id]?.bikeRatePerKm || 0}
+                                        value={editedTravelRates[employee.id]?.bikeRatePerKm || travelRates.find(rate => rate.employeeId === employee.id)?.bikeRatePerKm || 0}
                                         onChange={(e) => handleInputChange(employee.id, 'bikeRatePerKm', e.target.value)}
+                                        className="w-full"
                                     />
                                 ) : (
-                                    travelRates[employee.id]?.bikeRatePerKm || 0
+                                    travelRates.find(rate => rate.employeeId === employee.id)?.bikeRatePerKm || 0
                                 )}
                             </TableCell>
                             <TableCell>
                                 {editMode[employee.id] ? (
-                                    <>
-                                        <Button onClick={() => updateSalary(employee.id)}>Save</Button>
-                                        <Button onClick={() => cancelEdit(employee.id)}>Cancel</Button>
-                                    </>
+                                    <div className="flex space-x-2">
+                                        <Button onClick={() => updateSalary(employee.id)} className="flex-1">Save</Button>
+                                        <Button onClick={() => cancelEdit(employee.id)} variant="outline" className="flex-1">Cancel</Button>
+                                    </div>
                                 ) : (
-                                    <Button onClick={() => startEdit(employee.id)}>Edit</Button>
+                                    <Button onClick={() => startEdit(employee.id)} className="w-full">Edit</Button>
                                 )}
                             </TableCell>
                         </TableRow>
@@ -308,7 +302,7 @@ const Allowance: React.FC<{ authToken: string | null }> = ({ authToken }) => {
                     )}
                 </PaginationContent>
             </Pagination>
-        </div>
+        </Card>
     );
 };
 
