@@ -15,7 +15,7 @@ const Reports = () => {
         { id: 'salesPerformance', label: 'Sales Performance', icon: FiBarChart2, description: 'Analyze sales performance across different products and regions' },
         { id: 'visitFrequency', label: 'Visit Frequency', icon: FiMap, description: 'Analyze visit frequency, intent level, and monthly sales by employee' },
         { id: 'customerTypeAnalysis', label: 'Customer Type Analysis', icon: FiPieChart, description: 'Analyze customer types for each employee' },
-        { id: 'dailyPricing', label: 'Daily Pricing', icon: FiDollarSign, description: 'Compare daily pricing from brands for each city' },
+        // { id: 'dailyPricing', label: 'Daily Pricing', icon: FiDollarSign, description: 'Compare daily pricing from brands for each city' },
     ];
 
     return (
@@ -42,7 +42,7 @@ const Reports = () => {
             {activeTab === 'salesPerformance' && <SalesPerformanceReport />}
             {activeTab === 'visitFrequency' && <VisitFrequencyReport />}
             {activeTab === 'customerTypeAnalysis' && <CustomerTypeAnalysisReport />}
-            {activeTab === 'dailyPricing' && <DailyPricingReport />}
+            {/* {activeTab === 'dailyPricing' && <DailyPricingReport />} */}
         </div>
     );
 };

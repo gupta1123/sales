@@ -19,15 +19,20 @@ type EmployeeLocationListProps = {
 const formatDateTime = (date: string, time: string) => {
     const dateTimeString = `${date}T${time}`;
     const dateTime = new Date(dateTimeString);
+
+    const day = dateTime.getDate();
+    const month = dateTime.toLocaleString('en-US', { month: 'short' });
+    const year = dateTime.getFullYear().toString().slice(-2); // Get last two digits of the year
+    const formattedDate = `${day} ${month}' ${year}`;
+
     const options: Intl.DateTimeFormatOptions = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
         hour: 'numeric',
         minute: 'numeric',
         hour12: true,
     };
-    return dateTime.toLocaleString('en-US', options);
+    const formattedTime = dateTime.toLocaleString('en-US', options);
+
+    return `${formattedDate} ${formattedTime}`;
 };
 
 const EmployeeLocationList: React.FC<EmployeeLocationListProps> = ({ employeeLocations, onEmployeeClick }) => {

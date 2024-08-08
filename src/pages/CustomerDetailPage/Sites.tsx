@@ -25,7 +25,7 @@ interface Site {
     id: number;
     siteName: string;
     city: string;
-    // requirement: number;
+    area: string;
     status: string;
     startDate: string;
     endDate: string;
@@ -52,6 +52,7 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
             setCurrentPage(prev => prev + 1);
         }
     };
+
     const fetchSites = useCallback(async () => {
         try {
             const response = await axios.get<Site[]>(`http://ec2-51-20-32-8.eu-north-1.compute.amazonaws.com:8081/site/getByStore?id=${storeId}`, {
@@ -106,7 +107,6 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
     const handleFormSubmit = async (values: any) => {
         const payload = {
             ...values,
-            // requirement: Number(values.requirement),
             startDate: values.dateRange[0].format('YYYY-MM-DD'),
             endDate: values.dateRange[1].format('YYYY-MM-DD'),
             storeId: parseInt(storeId, 10),
@@ -153,7 +153,7 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
                         <div className="site-card-content">
                             <p className="site-name">{site.siteName}</p>
                             <p className="site-info"><MapPin size={14} /> {site.city}</p>
-                            {/* <p className="site-info"><Users size={14} /> Requirement: {site.requirement}</p> */}
+                            <p className="site-info"><MapPin size={14} /> Area: {site.area}</p>
                             <p className="site-info"><Calendar size={14} /> {dayjs(site.startDate).format('DD/MM/YYYY')} - {dayjs(site.endDate).format('DD/MM/YYYY')}</p>
                         </div>
                         <div className="site-actions">
@@ -205,9 +205,9 @@ const Sites: React.FC<SitesProps> = ({ storeId, token }) => {
                     <Form.Item name="city" label="City" rules={[{ required: true, message: 'Please enter the city' }]}>
                         <Input />
                     </Form.Item>
-                    {/* <Form.Item name="requirement" label="Requirement" rules={[{ required: true, message: 'Please enter the requirement' }]}>
-                        <Input type="number" />
-                    </Form.Item> */}
+                    <Form.Item name="area" label="Area" rules={[{ required: true, message: 'Please enter the area' }]}>
+                        <Input />
+                    </Form.Item>
                     <Form.Item name="status" label="Status" rules={[{ required: true, message: 'Please select the status' }]}>
                         <Select>
                             <Option value="active">Active</Option>

@@ -46,7 +46,7 @@ const DailyPricingReport: React.FC = () => {
             setPricingData(response.data);
             const uniqueCities = Array.from(new Set(response.data.map(item => item.city)));
             setCities(uniqueCities);
-            if (uniqueCities.length > 0 && !selectedCity) {
+            if (uniqueCities.length > 0) {
                 setSelectedCity(uniqueCities[0]);
             }
         } catch (err) {
@@ -157,7 +157,7 @@ const DailyPricingReport: React.FC = () => {
                             <label className="block text-sm font-medium mb-1">City</label>
                             <Select onValueChange={handleCityChange} value={selectedCity}>
                                 <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Select a city" />
+                                    <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {cities.map((city) => (

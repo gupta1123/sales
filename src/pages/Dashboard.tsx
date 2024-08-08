@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { useRouter } from 'next/router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch, fetchUserInfo, fetchTeamInfo } from '../store';
@@ -7,7 +7,6 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from "@/components/ui/button";
 import { debounce } from 'lodash';
-
 import { ClipLoader } from 'react-spinners';
 import { Skeleton } from '@/components/ui/skeleton';
 import EmployeeCard1 from './EmployeeCard1';
@@ -32,6 +31,7 @@ type EmployeeLocation = {
   updatedAt: string;
   updatedTime: string;
 };
+
 type Visit = {
   id: number;
   employeeId: number;
@@ -52,6 +52,7 @@ type Visit = {
     absences: number;
   };
 };
+
 type StateCardProps = {
   state: string;
   totalEmployees: number;
@@ -84,8 +85,7 @@ const Dashboard: React.FC = () => {
   } | null>(null);
   const [isMainDashboard, setIsMainDashboard] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [employeeInfo, setEmployeeInfo] = useState<any[]>([]); // Store employee info including city
-
+  const [employeeInfo, setEmployeeInfo] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<number[]>([]);
 
   const dispatch = useDispatch<AppDispatch>();
@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (token) {
       getAccessToken();
-      fetchEmployeeInfo(); // Fetch employee info on component mount
+      fetchEmployeeInfo();
     }
   }, [token]);
 
@@ -300,8 +300,8 @@ const Dashboard: React.FC = () => {
     setSelectedState(null);
     setSelectedEmployee(null);
     setIsMainDashboard(true);
-    setMapError(null); // Reset map error when returning to main dashboard
-    fetchAllEmployeeLocations(); // Re-fetch employee locations to reinitialize the map
+    setMapError(null);
+    fetchAllEmployeeLocations();
     router.push('/Dashboard', undefined, { shallow: true });
   }, [router]);
 
@@ -415,7 +415,6 @@ const Dashboard: React.FC = () => {
 
         const style = styleResponse.data;
 
-        // Modify the style to remove problematic layers
         style.layers = style.layers.filter((layer: any) =>
           !['poi-vectordata', 'poi'].includes(layer.id)
         );
@@ -423,7 +422,7 @@ const Dashboard: React.FC = () => {
         map.current = new MapLibreMap({
           container: mapContainer.current,
           style: style,
-          center: [78.9629, 20.5937], // Default to India's center
+          center: [78.9629, 20.5937],
           zoom: 4,
           transformRequest: (url, resourceType) => {
             if (url.startsWith('https://api.olamaps.io')) {
@@ -437,81 +436,72 @@ const Dashboard: React.FC = () => {
           },
         });
 
+        let currentPopup: Popup | null = null;
+
         map.current.on('load', () => {
           map.current!.addControl(new NavigationControl(), 'top-left');
 
-          // Add markers for each employee
           locations.forEach((location, index) => {
-            const color = `hsl(${(index * 137.508) % 360}, 70%, 50%)`; // Generate distinct colors
+            const color = `hsl(${(index * 137.508) % 360}, 70%, 50%)`;
             const marker = new Marker({ color: color })
               .setLngLat([location.longitude, location.latitude])
               .addTo(map.current!);
 
             const employee = employeeInfo.find(emp => emp.id === location.empId);
-            // const employeeCity = employee ? employee.city : 'Unknown';
-            const updatedTime = new Date(`${location.updatedAt}T${location.updatedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-            const popupContent = `
-              <div style="
-                font-family: 'Poppins', sans-serif;
-                padding: 12px;
-                max-width: 300px;
-                background-color: #f8f9fa;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                border-radius: 8px;
-                border: 2px solid #4A90E2;">
-                <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
-                  ${location.empName}
-                </div>
-                <div style="font-size: 1em; color: #555;">
-                
-                  <p><strong>Last updated:</strong> <span style="color: #4A90E2;">${location.updatedAt} ${updatedTime}</span></p>
-                </div>
-              </div>
-            `;
-
-            const popup = new Popup({ offset: 25 }).setHTML(popupContent);
-
-            marker.setPopup(popup);
+            const updatedDateTime = parseISO(`${location.updatedAt}T${location.updatedTime}`);
+            const formattedDateTime = format(updatedDateTime, "d MMM ''yy h:mm a");
 
             marker.getElement().addEventListener('mouseenter', async () => {
+              if (currentPopup) {
+                currentPopup.remove();
+                currentPopup = null;
+              }
+
               const latestVisit = await fetchLatestVisit(location.empName);
-              const visitTime = latestVisit && latestVisit.checkinTime ? new Date(`${latestVisit.visit_date}T${latestVisit.checkinTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : 'N/A';
+              const visitTime = latestVisit && latestVisit.checkinTime ? format(parseISO(`${latestVisit.visit_date}T${latestVisit.checkinTime}`), "h:mm a") : 'N/A';
               const popupContent = `
-                <div style="
-                  font-family: 'Poppins', sans-serif;
-                  padding: 12px;
-                  max-width: 300px;
-                  background-color: #f8f9fa;
-                  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                  border-radius: 8px;
-                  border: 2px solid #4A90E2;">
-                  <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
-                    ${location.empName}
-                  </div>
-                  <div style="font-size: 1em; color: #555;">
-                  
-                    <p><strong>Last updated:</strong> <span style="color: #4A90E2;">${location.updatedAt} ${updatedTime}</span></p>
-                    ${latestVisit ? `
-                      <div style="background-color: #d1ecf1; padding: 8px; border-radius: 6px; margin-top: 8px;">
-                        <p><strong>Latest Visit:</strong> ${latestVisit.storeName}</p>
-                        <p><strong>Time:</strong> ${visitTime}</p>
-                      </div>
-                    ` : '<p>No recent visits</p>'}
-                  </div>
-                </div>
-              `;
-              marker.setPopup(new Popup({ offset: 25 }).setHTML(popupContent));
-              marker.togglePopup();
+  <div style="
+    font-family: 'Poppins', sans-serif;
+    padding: 12px;
+    max-width: 400px;
+    background-color: #f8f9fa;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    border: 2px solid #4A90E2;">
+    <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 8px; color: #333;">
+      ${location.empName}
+    </div>
+    <div style="font-size: 1em; color: #555;">
+      <p style="white-space: nowrap;"><strong>Last updated:</strong> <span style="color: #4A90E2;">${formattedDateTime}</span></p>
+      ${latestVisit ? `
+        <div style="background-color: #d1ecf1; padding: 8px; border-radius: 6px; margin-top: 8px;">
+          <p><strong>Latest Visit:</strong> ${latestVisit.storeName} at ${visitTime}</p>
+        </div>
+      ` : '<p>No recent visits</p>'}
+    </div>
+  </div>
+`;
+
+
+              const popup = new Popup({ offset: 25 }).setHTML(popupContent);
+              popup.setLngLat(marker.getLngLat());
+              popup.addTo(map.current!);
+              currentPopup = popup;
             });
           });
 
-          // Fit map to show all markers
           const bounds = new maplibregl.LngLatBounds();
           locations.forEach(location => {
             bounds.extend([location.longitude, location.latitude]);
           });
           map.current!.fitBounds(bounds, { padding: 50 });
+        });
+
+        map.current.on('mousemove', () => {
+          if (currentPopup && !currentPopup.isOpen()) {
+            currentPopup.remove();
+            currentPopup = null;
+          }
         });
 
         map.current.on('error', (e) => {
@@ -566,7 +556,6 @@ const Dashboard: React.FC = () => {
       if (!acc[state]) {
         acc[state] = { employees: new Set(), visits: 0 };
       }
-      // Only count employees with completed visits
       if (visit.statsDto && visit.statsDto.completedVisitCount > 0) {
         acc[state].employees.add(`${visit.employeeFirstName || 'Unknown'} ${visit.employeeLastName || ''}`);
         acc[state].visits += visit.statsDto.completedVisitCount;
@@ -575,7 +564,7 @@ const Dashboard: React.FC = () => {
     }, {});
 
     return Object.entries(stateData)
-      .filter(([_, data]) => data.employees.size > 0) // Only show states with active employees
+      .filter(([_, data]) => data.employees.size > 0)
       .map(([state, data]) => {
         return (
           <StateCard
